@@ -1,0 +1,19 @@
+# LoveACE 后端的 Caddy 站点(宿主机已有 Caddy)。
+#
+# 部署形态:把下面的站点块直接追加到 /etc/caddy/Caddyfile(服务器上的
+# Caddyfile 就是逐站点直写的风格),然后:
+#   caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+# Caddy 自动签发/续期 HTTPS 证书。
+#
+# 说明:
+#   - 上游必须与 compose.yml 的端口发布地址一致(127.0.0.1:8080),
+#     loveaced 不直接暴露在公网。
+#   - Caddy 会在 X-Forwarded-For 末尾追加客户端地址。loveaced 只信任
+#     环回地址的代理头(LOVEACED_TRUSTED_PROXIES),其它来源的头一律忽略。
+#   - 不加额外缓存/压缩配置——loveaced 的公开端点已带标准 HTTP 缓存头,
+#     /v1/me/* 永不缓存,代理层再缓存会破坏正确性。
+
+goace.linota.cn {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+}

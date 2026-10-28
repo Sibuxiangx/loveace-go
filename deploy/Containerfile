@@ -1,0 +1,35 @@
+# LoveACE backend (loveaced) — multi-stage build for podman/docker.
+# M4+: CGO build on a debian base — the glibc onnxruntime shared library
+# cannot load under alpine/musl (2026-10-21: missing ld-linux/libstdc++).
+#
+# Prereq: the build context must contain the ORT shared library — run
+# `scripts/fetch_onnxruntime.sh` first (third_party/ is gitignored).
+# The captcha model (54MB, gitignored) is NOT baked in: mount it and set
+# LOVEACED_CAPTCHA_MODEL; the solver/store both degrade gracefully when
+# absent (see compose.yml + docs/maintenance.md).
+#
+# Build from the repo root:
+#   scripts/fetch_onnxruntime.sh && podman build -f deploy/Containerfile -t loveaced .
+FROM docker.io/library/golang:1.27.3 AS build
+ENV CGO_ENABLED=1 GOPROXY=https://goproxy.cn,direct
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY core ./core
+COPY server ./server
+COPY third_party ./third_party
+RUN go build -trimpath -ldflags="-s -w" -o /out/loveaced ./server/cmd/loveaced
+
+FROM docker.io/library/debian:bookworm-slim
+# nobody (65534) exists in debian's /etc/passwd; libstdc++6 is what the
+# ORT shared library dlopens (the build image bundles it, the slim
+# runtime does not).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates tzdata libstdc++6 \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /out/loveaced /usr/local/bin/loveaced
+COPY --from=build /src/third_party/onnxruntime/linux-x64/lib/libonnxruntime.so /usr/local/lib/
+ENV LOVEACE_ORT_LIB=/usr/local/lib/libonnxruntime.so
+USER 65534
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/loveaced"]

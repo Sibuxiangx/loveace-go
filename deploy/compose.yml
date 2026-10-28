@@ -1,0 +1,52 @@
+# LoveACE backend stack (podman-compose / docker compose compatible).
+#
+#   cp .env.example .env   # 填好密钥(见 docs/maintenance.md)
+#   podman build -f deploy/Containerfile -t localhost/loveaced:latest .
+#   podman-compose -p goace -f deploy/compose.yml up -d
+#
+# 安全模型:
+#   - loveaced 只发布在 127.0.0.1:8080——TLS 由宿主机已有的 Caddy 终结;
+#   - db 不发布任何端口,仅 compose 内网可达,主机侧用 podman exec;
+#     因此用 trust 认证(POSTGRES_HOST_AUTH_METHOD)——单机内网里
+#     密码不提供额外防线,反而会把密码泄进容器命令行/进程列表;
+#   - loveaced 的密钥经 env_file 传入,不进命令行。
+#
+# 注意:老版 podman-compose(1.0.x)不执行 build:,镜像需手动
+# podman build(上面第二条命令);docker compose 用户可直接 --build。
+
+services:
+  db:
+    image: docker.io/library/postgres:16
+    environment:
+      POSTGRES_USER: loveace
+      POSTGRES_DB: loveace
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loveace -d loveace"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: always
+
+  loveaced:
+    image: localhost/loveaced:latest
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    # 验证码原生化(可选):模型 ~54MB 不进镜像,挂载进容器后由 .env 的
+    # LOVEACED_CAPTCHA_MODEL / LOVEACED_CAPTCHA_STORE 指向。挂载目录属主
+    # 须是 65534(nobody):host: mkdir -p /data/captcha/store && chown -R
+    # 65534:65534 /data/captcha。不挂载 = 撞验证码回退人工挑战,一切照旧。
+    # volumes:
+    #   - /data/captcha/common.onnx:/data/captcha/common.onnx:ro
+    #   - /data/captcha/store:/data/captcha/store
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: always
+
+volumes:
+  pgdata:

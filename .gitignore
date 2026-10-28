@@ -1,0 +1,25 @@
+# Test/binary artifacts
+bin/
+*.test
+*.out
+
+# Credentials and secrets — never commit
+.env*
+!.env.example
+!deploy/.env.example
+
+# Private agent instructions (may contain server addresses, tokens, passwords)
+AGENTS.local.md
+
+# Go
+vendor/
+.DS_Store
+core/captcha/model/
+
+# onnxruntime shared libraries — fetched via scripts/fetch_onnxruntime.sh
+third_party/
+
+# Private tooling, kept out of the public tree: drives real school logins
+# and decrypts vaulted credentials. Never ship it in an image or repo.
+**/cmd/loadtest/
+tapdump/
