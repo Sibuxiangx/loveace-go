@@ -86,3 +86,20 @@ func TestNormalizeJSObject(t *testing.T) {
 		t.Fatalf("normalized = %q", got)
 	}
 }
+
+// The /about page lists the placeholder "请选择" among the display names but
+// not among the codes. Pairing must drop the placeholder before matching by
+// index, or every later building takes the name of its neighbour.
+func TestParseBuildingsDropsPlaceholderBeforePairing(t *testing.T) {
+	page := `<html><script>var pickerBuilding = {values: ["", "35", "36"], displayValues: ["请选择", "荆5", "荆6"]};</script></html>`
+	got := parseBuildings(page)
+	want := []Option{{Code: "35", Name: "荆5"}, {Code: "36", Name: "荆6"}}
+	if len(got) != len(want) {
+		t.Fatalf("buildings = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("buildings[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+}

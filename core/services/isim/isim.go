@@ -213,14 +213,21 @@ func parseBuildings(page string) []Option {
 		}
 		values := splitJSArray(valuesCaps[1])
 		names := splitJSArray(namesCaps[1])
+		// The placeholder is dropped before pairing, as the native clients do: a
+		// leftover "请选择" would shift every later name onto the wrong code.
+		var displays []string
+		for _, name := range names {
+			if name != "请选择" {
+				displays = append(displays, name)
+			}
+		}
 		var options []Option
 		for i, code := range values {
-			if i >= len(names) {
+			if i >= len(displays) {
 				break
 			}
-			name := names[i]
-			if code != "" && name != "请选择" && name != "" {
-				options = append(options, Option{Code: code, Name: name})
+			if code != "" {
+				options = append(options, Option{Code: code, Name: displays[i]})
 			}
 		}
 		if len(options) > 0 {
