@@ -86,10 +86,9 @@ type counters struct {
 }
 
 type cachedIndex struct {
-	at    time.Time
-	open  bool
-	msg   string
-	waitS int
+	at   time.Time
+	open bool
+	msg  string
 }
 
 // New builds a pool. Call Start once to recover tasks from the previous run.
@@ -500,12 +499,11 @@ func (p *Pool) Stats() PoolStats {
 
 // Status is the evaluation-open check the frontend uses to show "not open".
 type Status struct {
-	FeatureEnabled        bool
-	Open                  bool
-	ClosedMessage         string
-	FirstVisitWaitSeconds int
-	CheckedAt             time.Time
-	Stale                 bool
+	FeatureEnabled bool
+	Open           bool
+	ClosedMessage  string
+	CheckedAt      time.Time
+	Stale          bool
 }
 
 // Status reports whether the school has evaluation open. The school's index
@@ -531,13 +529,9 @@ func (p *Pool) Status(ctx context.Context, userID, deviceID string, fresh bool) 
 		return nil, err
 	}
 	entry := cachedIndex{
-		at:    now,
-		open:  !idx.IsClosed,
-		msg:   idx.ClosedMessage,
-		waitS: 0,
-	}
-	if idx.Protection.RequiresInitialWait() {
-		entry.waitS = idx.Protection.WaitSeconds()
+		at:   now,
+		open: !idx.IsClosed,
+		msg:  idx.ClosedMessage,
 	}
 	p.statusMu.Lock()
 	p.statuses[userID] = entry
@@ -549,7 +543,6 @@ func (p *Pool) Status(ctx context.Context, userID, deviceID string, fresh bool) 
 func fillFromCache(out *Status, c cachedIndex) {
 	out.Open = c.open
 	out.ClosedMessage = c.msg
-	out.FirstVisitWaitSeconds = c.waitS
 	out.CheckedAt = c.at
 }
 

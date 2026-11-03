@@ -126,12 +126,12 @@ func fatalReason(err error) *taskError {
 // errShutdown, or a *taskError with the failure kind.
 func (r *runner) execute(ctx context.Context) error {
 	r.log("开始评教任务")
-	if err := r.gate(ctx); err != nil {
-		return r.settle(err)
-	}
 	list, err := r.courses(ctx)
 	if err != nil {
 		return r.settle(err)
+	}
+	if list.IsClosed {
+		return r.settle(&taskError{kind: "closed", msg: list.ClosedMessage})
 	}
 	runs := pendingRuns(list.Courses)
 	if len(runs) == 0 {
@@ -148,35 +148,6 @@ func (r *runner) execute(ctx context.Context) error {
 		return r.settle(err)
 	}
 	return r.settle(nil)
-}
-
-// gate reproduces the first-visit protection flow: refuse a closed evaluation,
-// and wait out the reading countdown up to MaxProtectionWaits times.
-func (r *runner) gate(ctx context.Context) error {
-	for attempt := 0; ; attempt++ {
-		var idx *jwc.TeacherEvaluationIndexStatus
-		err := r.call(ctx, func(rm Remote) (err error) {
-			idx, err = rm.Index(ctx)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-		if idx.IsClosed {
-			return &taskError{kind: "closed", msg: idx.ClosedMessage}
-		}
-		if !idx.Protection.RequiresInitialWait() {
-			return nil
-		}
-		if attempt >= MaxProtectionWaits {
-			return &taskError{kind: "protection_unresolved", msg: "首次访问保护未解除，请稍后再发起任务"}
-		}
-		secs := idx.Protection.WaitSeconds()
-		r.log(fmt.Sprintf("首次评教需阅读须知，等待 %d 秒后继续", secs))
-		if err := r.sleep(ctx, time.Duration(secs)*time.Second); err != nil {
-			return err
-		}
-	}
 }
 
 func (r *runner) courses(ctx context.Context) (*jwc.TeacherEvaluationCourseList, error) {

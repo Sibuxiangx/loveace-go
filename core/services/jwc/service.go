@@ -798,8 +798,8 @@ func (sv *Service) teacherEvalIndexPage(caller context.Context) (string, error) 
 	return indexResp.BodyText(), nil
 }
 
-// TeacherEvalIndex loads the evaluation index state (token, closed state and
-// first-visit protection). It never issues the course search request.
+// TeacherEvalIndex loads the evaluation index state (token and closed state).
+// It never issues the course search request.
 func (sv *Service) TeacherEvalIndex(caller context.Context) (*TeacherEvaluationIndexStatus, error) {
 	index, err := sv.teacherEvalIndexPage(caller)
 	if err != nil {
@@ -808,21 +808,19 @@ func (sv *Service) TeacherEvalIndex(caller context.Context) (*TeacherEvaluationI
 	token := parseEvalToken(index)
 	closed := isEvalClosed(index)
 	closedMessage := evalClosedMessage(index)
-	protection := parseEvalProtection(index)
 	if closed {
 		if closedMessage == "" {
 			closedMessage = "评价暂未开启"
 		}
 		return &TeacherEvaluationIndexStatus{
 			TokenValue: token, IsClosed: true, ClosedMessage: closedMessage,
-			Protection: protection,
 		}, nil
 	}
 	if token == "" {
 		return nil, errs.NewParse("teacherEvaluation: token missing")
 	}
 	return &TeacherEvaluationIndexStatus{
-		TokenValue: token, IsClosed: false, Protection: protection,
+		TokenValue: token, IsClosed: false,
 	}, nil
 }
 
@@ -835,26 +833,17 @@ func (sv *Service) TeacherEvalCourses(caller context.Context) (*TeacherEvaluatio
 	token := parseEvalToken(index)
 	closed := isEvalClosed(index)
 	closedMessage := evalClosedMessage(index)
-	protection := parseEvalProtection(index)
 	if closed {
 		if closedMessage == "" {
 			closedMessage = "评价暂未开启"
 		}
 		return &TeacherEvaluationCourseList{
 			TokenValue: token, IsClosed: true, ClosedMessage: closedMessage,
-			Courses: []TeacherEvaluationCourse{}, Protection: protection,
+			Courses: []TeacherEvaluationCourse{},
 		}, nil
 	}
 	if token == "" {
 		return nil, errs.NewParse("teacherEvaluation: token missing")
-	}
-	// First-visit protection: withhold the list (no search request) until the
-	// caller has waited out the countdown, as the Android client does.
-	if protection.RequiresInitialWait() {
-		return &TeacherEvaluationCourseList{
-			TokenValue: token, IsClosed: false, Courses: []TeacherEvaluationCourse{},
-			Protection: protection,
-		}, nil
 	}
 	response, err := sv.postForm(caller,
 		"/student/teachingEvaluation/teachingEvaluation/search?sf_request_type=ajax",
@@ -878,7 +867,7 @@ func (sv *Service) TeacherEvalCourses(caller context.Context) (*TeacherEvaluatio
 		}
 	}
 	return &TeacherEvaluationCourseList{
-		TokenValue: token, IsClosed: false, Courses: courses, Protection: protection,
+		TokenValue: token, IsClosed: false, Courses: courses,
 	}, nil
 }
 

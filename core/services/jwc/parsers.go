@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/Sibuxiangx/loveace-go/core/timeutil"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -833,43 +832,6 @@ func evalClosedMessage(page string) string {
 		return true
 	})
 	return message
-}
-
-var (
-	evalIsFinishedRe   = regexp.MustCompile(`var\s+isFinished\s*=\s*["']([^"']*)["']`)
-	evalIsFirstVisitRe = regexp.MustCompile(`var\s+isFirstVisit\s*=\s*["']([^"']*)["']`)
-)
-
-// parseEvalProtection reads the first-visit protection gate from the index page.
-func parseEvalProtection(page string) TeacherEvaluationIndexProtection {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(page))
-	if err != nil {
-		return TeacherEvaluationIndexProtection{}
-	}
-	inputValue := func(id string) string {
-		value, _ := doc.Find("input#" + id).First().Attr("value")
-		return strings.TrimSpace(value)
-	}
-	var scripts []string
-	doc.Find("script").Each(func(_ int, script *goquery.Selection) {
-		scripts = append(scripts, script.Text())
-	})
-	joined := strings.Join(scripts, "\n")
-	protection := TeacherEvaluationIndexProtection{
-		SchoolID:     inputValue("schoolId"),
-		InfoOff:      inputValue("infoOff"),
-		HasAhcjTimer: strings.Contains(joined, "tsxxAhcj"),
-	}
-	protection.InfoTimeSeconds, _ = strconv.Atoi(inputValue("infoTime"))
-	if m := evalIsFinishedRe.FindStringSubmatch(joined); m != nil {
-		protection.IsFinished = strings.TrimSpace(m[1])
-		protection.IsFinishedResolved = true
-	}
-	if m := evalIsFirstVisitRe.FindStringSubmatch(joined); m != nil {
-		protection.IsFirstVisit = strings.TrimSpace(m[1])
-		protection.IsFirstVisitResolved = true
-	}
-	return protection
 }
 
 func parseEvalCourse(value json.RawMessage) (TeacherEvaluationCourse, bool) {

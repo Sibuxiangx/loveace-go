@@ -71,12 +71,11 @@ type teachStatusInput struct {
 }
 
 type teachStatusBody struct {
-	FeatureEnabled        bool      `json:"feature_enabled"`
-	Open                  bool      `json:"open"`
-	ClosedMessage         string    `json:"closed_message,omitempty"`
-	FirstVisitWaitSeconds int       `json:"first_visit_wait_seconds,omitempty"`
-	CheckedAt             time.Time `json:"checked_at"`
-	Stale                 bool      `json:"stale,omitempty"`
+	FeatureEnabled bool      `json:"feature_enabled"`
+	Open           bool      `json:"open"`
+	ClosedMessage  string    `json:"closed_message,omitempty"`
+	CheckedAt      time.Time `json:"checked_at"`
+	Stale          bool      `json:"stale,omitempty"`
 }
 
 func (s *Server) teachStatus(ctx context.Context, in *teachStatusInput) (*Output[teachStatusBody], error) {
@@ -89,12 +88,11 @@ func (s *Server) teachStatus(ctx context.Context, in *teachStatusInput) (*Output
 		return nil, teachProblem(err, nil)
 	}
 	return &Output[teachStatusBody]{Status: http.StatusOK, Body: teachStatusBody{
-		FeatureEnabled:        st.FeatureEnabled,
-		Open:                  st.Open,
-		ClosedMessage:         st.ClosedMessage,
-		FirstVisitWaitSeconds: st.FirstVisitWaitSeconds,
-		CheckedAt:             st.CheckedAt,
-		Stale:                 st.Stale,
+		FeatureEnabled: st.FeatureEnabled,
+		Open:           st.Open,
+		ClosedMessage:  st.ClosedMessage,
+		CheckedAt:      st.CheckedAt,
+		Stale:          st.Stale,
 	}}, nil
 }
 

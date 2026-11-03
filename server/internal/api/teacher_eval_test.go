@@ -24,9 +24,16 @@ import (
 const teachIndexOpen = `<html><body><input id="tokenValue" value="TOK"></body></html>`
 const teachIndexClosed = `<html><body><div class="alert">评估开关已关闭</div></body></html>`
 
-// teachIndexProtected is a first-visit index: the reading gate holds the task
-// on the clock, so it stays active for the duplicate-create assertions.
-const teachIndexProtected = `<html><head><script>var isFinished = "unfinished"; var isFirstVisit = "unVisit"; var tsxxAhcj = 1;</script></head><body><input id="tokenValue" value="TOK"><input id="schoolId" value="S1"><input id="infoOff" value="1"><input id="infoTime" value="30"></body></html>`
+// teachCourses lists two unevaluated courses. The first launches at once and
+// the second waits LaunchInterval on the manual clock, so the task stays active
+// for the duplicate-create assertions.
+const teachCourses = `{"data":[` +
+	`{"evaluationContent":"课程一","evaluatedPeople":"教师一","isEvaluated":"否",` +
+	`"id":{"evaluatedPeople":"p1","coureSequenceNumber":"s1","evaluationContentNumber":"e1"},` +
+	`"questionnaire":{"questionnaireNumber":"q1","questionnaireName":"问卷"}},` +
+	`{"evaluationContent":"课程二","evaluatedPeople":"教师二","isEvaluated":"否",` +
+	`"id":{"evaluatedPeople":"p2","coureSequenceNumber":"s2","evaluationContentNumber":"e2"},` +
+	`"questionnaire":{"questionnaireNumber":"q2","questionnaireName":"问卷"}}]}`
 
 // newTeachTestServer mirrors newGroupTestServer and injects a teach pool that
 // waits on a manual clock, so no test ever sleeps through a 140s stagger.
@@ -129,7 +136,8 @@ func TestTeacherEvalStatusRequiresLogin(t *testing.T) {
 
 func TestTeacherEvalCreateGatesAndIdempotency(t *testing.T) {
 	tr := successTransport(t)
-	tr.OnRequest(transport.Get, "/student/teachingEvaluation/evaluation/index", transport.NewResponse(200, []byte(teachIndexProtected)))
+	tr.OnRequest(transport.Get, "/student/teachingEvaluation/evaluation/index", transport.NewResponse(200, []byte(teachIndexOpen)))
+	tr.OnRequest(transport.Post, "/student/teachingEvaluation/teachingEvaluation/search", transport.NewResponse(200, []byte(teachCourses)))
 	h := newTeachTestServer(t, tr, true, "")
 	access := mustLogin(t, h, "20000003", "Passw0rd!123", "d1")
 	const path = "/v1/me/teacher-eval/tasks"

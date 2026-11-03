@@ -14,8 +14,6 @@ const (
 	LaunchInterval = 6 * time.Second
 	// SubmitWait is the pause between preparing a form and submitting it.
 	SubmitWait = 140 * time.Second
-	// MaxProtectionWaits bounds first-visit reloads.
-	MaxProtectionWaits = 2
 	// MaxSubmitAttempts bounds submissions per course. A second attempt only
 	// happens after the server has confirmed the course is still unevaluated.
 	MaxSubmitAttempts = 2

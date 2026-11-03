@@ -47,6 +47,7 @@ type userState struct {
 	recorded    map[string]bool // failing submit that the server still recorded
 	verifyErr   bool
 	captcha     bool
+	closedMsg   string
 	prepareAt   map[string][]time.Time
 	submitAt    map[string][]time.Time
 	modes       []jwc.TeacherEvalScoreMode
@@ -131,6 +132,9 @@ func (r fakeRemote) Index(context.Context) (*jwc.TeacherEvaluationIndexStatus, e
 func (r fakeRemote) Courses(context.Context) (*jwc.TeacherEvaluationCourseList, error) {
 	r.u.mu.Lock()
 	defer r.u.mu.Unlock()
+	if r.u.closedMsg != "" {
+		return &jwc.TeacherEvaluationCourseList{IsClosed: true, ClosedMessage: r.u.closedMsg}, nil
+	}
 	return &jwc.TeacherEvaluationCourseList{
 		TokenValue: "TOK",
 		Courses:    append([]jwc.TeacherEvaluationCourse(nil), r.u.courses...),
@@ -397,50 +401,20 @@ func TestCaptchaEndsTheTask(t *testing.T) {
 	}
 }
 
-func TestFirstVisitProtectionWaitsThenProceeds(t *testing.T) {
+func TestClosedAtListEndsTaskWithoutPrepare(t *testing.T) {
 	h := newHarness(t, Config{})
 	u := h.school.user("u1")
-	protected := &jwc.TeacherEvaluationIndexStatus{
-		TokenValue: "TOK",
-		Protection: jwc.TeacherEvaluationIndexProtection{
-			InfoOff: "1", InfoTimeSeconds: 30, HasAhcjTimer: true,
-			IsFirstVisit: "unVisit", IsFirstVisitResolved: true,
-		},
-	}
-	// Create reads the first entry; the runner then sees the protection gate.
-	u.index = []*jwc.TeacherEvaluationIndexStatus{{TokenValue: "TOK"}, protected, {TokenValue: "TOK"}}
-	task := h.create("u1", ScoreRandom)
-	h.drive(h.finished(task.ID))
-
-	if got := h.status(task.ID); got.Status != "completed" {
-		t.Fatalf("status = %s (%s)", got.Status, got.ErrorMessage)
-	}
-	prep := u.preparesOf(keyOf(1))
-	if len(prep) != 1 || !prep[0].Equal(t0.Add(35*time.Second)) {
-		t.Fatalf("first prepare at %v, want after the 35s protection wait", prep)
-	}
-}
-
-func TestProtectionUnresolvedAfterTwoWaitsFails(t *testing.T) {
-	h := newHarness(t, Config{})
-	u := h.school.user("u1")
-	protected := &jwc.TeacherEvaluationIndexStatus{
-		TokenValue: "TOK",
-		Protection: jwc.TeacherEvaluationIndexProtection{
-			InfoOff: "1", InfoTimeSeconds: 30, HasAhcjTimer: true,
-			IsFirstVisit: "unVisit", IsFirstVisitResolved: true,
-		},
-	}
-	u.index = []*jwc.TeacherEvaluationIndexStatus{{TokenValue: "TOK"}, protected}
+	// Create sees the school open; the course list then reports it closed.
+	u.closedMsg = "评估开关已关闭"
 	task := h.create("u1", ScoreRandom)
 	h.drive(h.finished(task.ID))
 
 	got := h.status(task.ID)
-	if got.Status != "failed" || got.ErrorKind != "protection_unresolved" {
-		t.Fatalf("task = %s/%s, want failed/protection_unresolved", got.Status, got.ErrorKind)
+	if got.Status != "failed" || got.ErrorKind != "closed" {
+		t.Fatalf("task = %s/%s, want failed/closed", got.Status, got.ErrorKind)
 	}
 	if n := len(u.preparesOf(keyOf(1))); n != 0 {
-		t.Fatalf("prepares = %d, nothing may run behind an unresolved gate", n)
+		t.Fatalf("prepares = %d, a closed evaluation must not run", n)
 	}
 }
 

@@ -401,52 +401,19 @@ type TeacherEvaluationCourse struct {
 	IsEvaluated             bool   `json:"is_evaluated"`
 }
 
-// TeacherEvaluationIndexProtection is the first-visit reading gate on the evaluation index page.
-type TeacherEvaluationIndexProtection struct {
-	SchoolID             string `json:"school_id"`
-	InfoOff              string `json:"info_off"`
-	InfoTimeSeconds      int    `json:"info_time_seconds"`
-	IsFinished           string `json:"is_finished"`
-	IsFinishedResolved   bool   `json:"is_finished_resolved"`
-	IsFirstVisit         string `json:"is_first_visit"`
-	IsFirstVisitResolved bool   `json:"is_first_visit_resolved"`
-	HasAhcjTimer         bool   `json:"has_ahcj_timer"`
-}
-
-// RequiresInitialWait reports whether the index withholds the course list
-// until the first-visit protection countdown has elapsed.
-func (p TeacherEvaluationIndexProtection) RequiresInitialWait() bool {
-	if p.InfoOff != "1" || p.InfoTimeSeconds <= 0 || !p.HasAhcjTimer {
-		return false
-	}
-	finishedKnown := p.IsFinishedResolved && p.IsFinished != "unfinished"
-	visitedKnown := p.IsFirstVisitResolved && p.IsFirstVisit != "unVisit"
-	return !(finishedKnown || visitedKnown)
-}
-
-// WaitSeconds is the protection wait: countdown plus a 5s safety margin.
-func (p TeacherEvaluationIndexProtection) WaitSeconds() int {
-	if p.InfoTimeSeconds > 0 {
-		return p.InfoTimeSeconds + 5
-	}
-	return 0
-}
-
 // TeacherEvaluationCourseList is the evaluation index.
 type TeacherEvaluationCourseList struct {
-	TokenValue    string                           `json:"token_value"`
-	IsClosed      bool                             `json:"is_closed"`
-	ClosedMessage string                           `json:"closed_message"`
-	Courses       []TeacherEvaluationCourse        `json:"courses"`
-	Protection    TeacherEvaluationIndexProtection `json:"protection"`
+	TokenValue    string                    `json:"token_value"`
+	IsClosed      bool                      `json:"is_closed"`
+	ClosedMessage string                    `json:"closed_message"`
+	Courses       []TeacherEvaluationCourse `json:"courses"`
 }
 
 // TeacherEvaluationIndexStatus is the evaluation index state without course data.
 type TeacherEvaluationIndexStatus struct {
-	TokenValue    string                           `json:"token_value"`
-	IsClosed      bool                             `json:"is_closed"`
-	ClosedMessage string                           `json:"closed_message"`
-	Protection    TeacherEvaluationIndexProtection `json:"protection"`
+	TokenValue    string `json:"token_value"`
+	IsClosed      bool   `json:"is_closed"`
+	ClosedMessage string `json:"closed_message"`
 }
 
 // TeacherEvaluationOption is one radio option.

@@ -527,7 +527,6 @@ p50 4.3s 已优于池下 8.9s。)2026-10-26:登录里的 JWC 回调改为后台�
 |---|---|---|
 | 课程错峰 | 6 s | 同一任务内;不同用户之间不协调 |
 | 提交前等待 | 140 s | prepare 之后 |
-| 首次访问保护 | `infoTime+5s`,最多 2 次 | 超过 → `protection_unresolved` |
 | prepare 失败 | 立即重试 1 次 | |
 | 提交结果不明 | 先核实(verify),确认未评才重提 | 每门课最多 2 次提交 |
 | 批后补偿 | 1 轮 | 仅 `prepare_failed` 与已核实未评的 `submit_failed` |
@@ -546,7 +545,7 @@ p50 4.3s 已优于池下 8.9s。)2026-10-26:登录里的 JWC 回调改为后台�
 
 - 任务:`queued → running → completed | failed | cancelled | interrupted`。
 - 课程:`pending → preparing → waiting → submitting → verifying → success | failed | cancelled`。
-- 失败类型 `error_kind`:`captcha_required`、`session_required`、`closed`、`protection_unresolved`、`paused`、`interrupted`、`prepare_failed`、`submit_failed`、`verify_unknown`、`unknown`。
+- 失败类型 `error_kind`:`captcha_required`、`session_required`、`closed`、`paused`、`interrupted`、`prepare_failed`、`submit_failed`、`verify_unknown`、`unknown`。
 
 ### 15.4 接口
 
@@ -575,7 +574,7 @@ p50 4.3s 已优于池下 8.9s。)2026-10-26:登录里的 JWC 回调改为后台�
 ### 15.7 关闭态
 
 - 创建时读学校首页:关闭 → 409 `teacher_eval.closed`,不落库。
-- 运行时首次访问保护闸再读一次:关闭 → 任务失败 `closed`。
+- 运行时拉取课程列表时若学校已关闭:任务失败 `closed`,不发起 prepare。
 - `status` 对学校不可达的处理:返回 30 分钟内最近一次结果并标 `stale=true`;更早则 503。
 
 ### 15.8 未验证项
