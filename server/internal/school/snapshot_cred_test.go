@@ -88,6 +88,27 @@ func TestSnapshotRestoreCarriesCredentials(t *testing.T) {
 	}
 }
 
+// TestSnapshotRestoredSessionMayWrite: a session rebuilt from a cold snapshot
+// must carry the manager's write posture. A bare session.New defaults to
+// AllowWrites=false, which rejected every evaluation submit locally
+// (2026-11-03 production: submits failed in ~2ms while reads worked).
+func TestSnapshotRestoredSessionMayWrite(t *testing.T) {
+	st := &fakeSnapshotStore{snaps: map[string]UserSnapshot{"u1": snapshotWithCookies()}}
+	m := NewManager(func() transport.Transport { return nil },
+		WithSnapshotStore(st),
+		WithCredentialResolver(func(context.Context, string) (string, string, string, error) {
+			return "20000003", "gw", "school-pw", nil
+		}))
+
+	sess, err := m.SessionFor(context.Background(), "u1", "d1")
+	if err != nil {
+		t.Fatalf("snapshot restore: %v", err)
+	}
+	if !sess.WritesAllowed() {
+		t.Fatal("restored session denies writes; submits would fail before reaching the school")
+	}
+}
+
 // TestSnapshotRestoreResolverMissSkipsRestore: a resolver miss degrades to
 // no restore (the next request takes the vault-relogin path) instead of
 // building a credential-less zombie.

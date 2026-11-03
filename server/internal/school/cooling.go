@@ -239,7 +239,9 @@ func (m *Manager) restoreSnapshot(ctx context.Context, userID, deviceID string) 
 			return nil
 		}
 	}
-	s := session.New(account, gwPass, password, m.newTransport())
+	// Built with the manager's write posture: a bare session.New defaults to
+	// AllowWrites=false and would reject every submit locally.
+	s := m.newSessionAt(account, gwPass, password)
 	s.Jar().Replace(snap.Cookies)
 	s.SeedTickets(snap.Tickets) // static service tickets: skip the mint walk
 	m.wireRecovery(userID, s)
