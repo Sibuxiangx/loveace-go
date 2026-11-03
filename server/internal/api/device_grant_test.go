@@ -189,3 +189,28 @@ func TestDeviceVerificationPageIsFramingAndReferrerSafe(t *testing.T) {
 		t.Fatalf("CSP = %q, the page must not be framed", csp)
 	}
 }
+
+func TestDeviceGrantApprovedIsRedeemedAtAnyPollPace(t *testing.T) {
+	h, clock := deviceServer(t, successTransport(t))
+	deviceCode, userCode := issueDeviceCode(t, h)
+
+	if _, out := pollDevice(t, h, deviceCode); out["error"] != "authorization_pending" {
+		t.Fatalf("first poll = %v", out)
+	}
+	*clock = clock.Add(time.Second)
+	if _, out := pollDevice(t, h, deviceCode); out["error"] != "slow_down" {
+		t.Fatalf("early poll = %v, want slow_down", out)
+	}
+	*clock = clock.Add(time.Second)
+	code, out := deviceCall(t, h, http.MethodPost, "/v1/auth/device/verify", "application/json",
+		`{"user_code":"`+userCode+`","account":"20000003","password":"Passw0rd!123"}`)
+	if code != http.StatusOK {
+		t.Fatalf("verify = %d %v", code, out)
+	}
+	// The device polls again straight away, far faster than the grown interval.
+	// An approved grant must still hand over its tokens.
+	code, out = pollDevice(t, h, deviceCode)
+	if code != http.StatusOK || out["access_token"] == nil {
+		t.Fatalf("poll after approval = %d %v, want tokens despite pace", code, out)
+	}
+}

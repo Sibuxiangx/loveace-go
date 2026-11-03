@@ -173,8 +173,27 @@ func (s *Server) deviceToken(w http.ResponseWriter, r *http.Request) {
 		deviceOAuthError(w, http.StatusBadRequest, "invalid_grant")
 		return
 	}
-	// Polling faster than the interval is slow_down, and the interval grows
-	// for the rest of the grant.
+	// An approved grant is redeemed whatever the poll pace. Pacing only
+	// throttles devices that are still waiting for approval; applying it to
+	// an approved grant starved the device of its tokens.
+	if g.Status == store.DeviceGrantApproved {
+		redeemed, err := s.deps.Store.ConsumeDeviceGrant(ctx, g.ID)
+		if err != nil || !redeemed {
+			deviceOAuthError(w, http.StatusBadRequest, "invalid_grant")
+			return
+		}
+		pair, err := s.issueDeviceTokens(ctx, g.UserID, g.ClientName, g.Platform, now)
+		if err != nil {
+			// The school session is gone and cannot be restored. The grant is
+			// spent; the device must start a new authorization.
+			deviceOAuthError(w, http.StatusBadRequest, "expired_token")
+			return
+		}
+		writeDeviceJSON(w, http.StatusOK, pair)
+		return
+	}
+	// RFC 8628 §3.5: polling faster than the interval while pending is
+	// slow_down, and the interval grows for the rest of the grant.
 	interval := g.Interval
 	early := !g.LastPolledAt.IsZero() && now.Sub(g.LastPolledAt) < time.Duration(interval)*time.Second
 	if early {
@@ -188,23 +207,7 @@ func (s *Server) deviceToken(w http.ResponseWriter, r *http.Request) {
 		deviceOAuthError(w, http.StatusBadRequest, "slow_down")
 		return
 	}
-	if g.Status == store.DeviceGrantPending {
-		deviceOAuthError(w, http.StatusBadRequest, "authorization_pending")
-		return
-	}
-	redeemed, err := s.deps.Store.ConsumeDeviceGrant(ctx, g.ID)
-	if err != nil || !redeemed {
-		deviceOAuthError(w, http.StatusBadRequest, "invalid_grant")
-		return
-	}
-	pair, err := s.issueDeviceTokens(ctx, g.UserID, g.ClientName, g.Platform, now)
-	if err != nil {
-		// The school session is gone and cannot be restored. The grant is
-		// spent; the device must start a new authorization.
-		deviceOAuthError(w, http.StatusBadRequest, "expired_token")
-		return
-	}
-	writeDeviceJSON(w, http.StatusOK, pair)
+	deviceOAuthError(w, http.StatusBadRequest, "authorization_pending")
 }
 
 // issueDeviceTokens creates the device row, attaches the user's live school
