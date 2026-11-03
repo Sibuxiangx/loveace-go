@@ -50,11 +50,12 @@ type Deps struct {
 
 // Server holds the API's collaborators.
 type Server struct {
-	deps       Deps
-	cache      *cache.Cache
-	rejections *rejectionCache
-	logins     *loginRateLimiter
-	now        func() time.Time
+	deps             Deps
+	cache            *cache.Cache
+	rejections       *rejectionCache
+	logins           *loginRateLimiter
+	deviceChallenges *deviceChallenges
+	now              func() time.Time
 }
 
 // New builds the API server.
@@ -73,11 +74,12 @@ func New(d Deps) *Server {
 		perMinute = 20
 	}
 	return &Server{
-		deps:       d,
-		cache:      cache.New(),
-		rejections: newRejectionCache(15*time.Minute, time.Now),
-		logins:     newLoginRateLimiter(perMinute, time.Now),
-		now:        time.Now,
+		deps:             d,
+		cache:            cache.New(),
+		rejections:       newRejectionCache(15*time.Minute, time.Now),
+		logins:           newLoginRateLimiter(perMinute, time.Now),
+		deviceChallenges: newDeviceChallenges(time.Now),
+		now:              time.Now,
 	}
 }
 
@@ -112,6 +114,7 @@ func (s *Server) Router() http.Handler {
 	s.registerMeContent(api)
 	s.registerMergedTimetable(api)
 	s.registerPublicCalendar(r)
+	s.registerDeviceAuth(r)
 	s.registerAdminContent(api)
 	s.registerAdmin(r)
 

@@ -33,6 +33,7 @@ type Store struct {
 	idem          map[string]*store.IdempotencyRecord // "userID\x00key"
 	evalTasks     map[string]*store.TeacherEvalTask
 	evalCourses   map[string][]store.TeacherEvalTaskCourse
+	deviceGrants  map[string]*store.DeviceGrant
 	evalLogs      map[string][]store.TeacherEvalLog
 	evalLogSeq    int64
 }
@@ -50,6 +51,7 @@ func New() *Store {
 		userSnaps:     map[string]*store.UserSnapshot{},
 		announcements: map[string]*store.Announcement{},
 		acks:          map[string]time.Time{},
+		deviceGrants:  map[string]*store.DeviceGrant{},
 		calTerms:      map[string]*store.CalendarTerm{},
 		calRules:      map[string]*store.CalendarRule{},
 		idem:          map[string]*store.IdempotencyRecord{},

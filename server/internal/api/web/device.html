@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>设备授权 · 彩带小工具</title>
+  <link rel="stylesheet" href="/device.css">
+</head>
+<body>
+  <main class="root">
+    <header class="hero">
+      <img class="appicon" src="/device-appicon.png" width="88" height="88" alt="彩带小工具图标">
+      <h1 class="headline">设备授权</h1>
+      <p class="body c-var" id="subtitle"></p>
+    </header>
+
+    <div class="stack">
+      <div id="banner" class="banner" role="alert" hidden>
+        <span class="icon" data-icon="error.fill" aria-hidden="true"></span>
+        <span id="banner-text"></span>
+      </div>
+
+      <form id="card-code" class="card" novalidate>
+        <div class="field">
+          <span class="icon" data-icon="devices" aria-hidden="true"></span>
+          <div class="box">
+            <input id="user-code" name="user_code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder=" ">
+            <label for="user-code">设备码 XXXX-XXXX</label>
+          </div>
+        </div>
+        <button class="btn filled" type="submit"><span class="btn-label">下一步</span></button>
+      </form>
+
+      <form id="card-login" class="card" hidden novalidate>
+        <div class="device">
+          <span class="icon" data-icon="devices" aria-hidden="true"></span>
+          <span id="device-info"></span>
+        </div>
+        <div class="field">
+          <span class="icon" data-icon="badge" aria-hidden="true"></span>
+          <div class="box">
+            <input id="account" name="account" autocomplete="username" inputmode="numeric" placeholder=" ">
+            <label for="account">学号</label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="icon" data-icon="lock" aria-hidden="true"></span>
+          <div class="box">
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder=" ">
+            <label for="password">学校密码</label>
+          </div>
+        </div>
+        <button type="button" class="link" id="toggle-gw" aria-controls="gw-field">网关密码与 AUFE 密码不同？</button>
+        <div class="field" id="gw-field" hidden>
+          <span class="icon" data-icon="vpn_key" aria-hidden="true"></span>
+          <div class="box">
+            <input id="gateway" name="gateway_password" type="password" autocomplete="off" placeholder=" ">
+            <label for="gateway">网关密码（可选）</label>
+          </div>
+        </div>
+        <label class="agree">
+          <input type="checkbox" id="agree" name="agree">
+          <span class="agree-box"><span class="icon" data-icon="check" aria-hidden="true"></span></span>
+          <span class="agree-text">已阅读并同意彩带小工具的用户服务协议和隐私政策（可在小程序「关于」中查看）</span>
+        </label>
+        <button class="btn filled" type="submit"><span class="icon" data-icon="login" aria-hidden="true"></span><span class="btn-label">确认授权</span></button>
+      </form>
+
+      <form id="card-captcha" class="card" hidden novalidate>
+        <p class="title">输入验证码</p>
+        <p class="body c-var">验证码图片 3 分钟内有效，看不清可以点图片换一张</p>
+        <button type="button" class="captcha" id="captcha-btn" aria-label="验证码图片，点按换一张"><img id="captcha-img" alt=""></button>
+        <div class="field">
+          <span class="icon" data-icon="shield" aria-hidden="true"></span>
+          <div class="box">
+            <input id="captcha-code" name="code" autocomplete="off" maxlength="8" placeholder=" ">
+            <label for="captcha-code">验证码</label>
+          </div>
+        </div>
+        <button class="btn filled" type="submit"><span class="icon" data-icon="verified_user" aria-hidden="true"></span><span class="btn-label">提交验证码</span></button>
+        <div class="row">
+          <button type="button" class="btn tonal" id="captcha-refresh"><span class="icon" data-icon="refresh" aria-hidden="true"></span><span>换一张</span></button>
+          <button type="button" class="btn text" id="captcha-back">返回</button>
+        </div>
+      </form>
+
+      <section id="card-done" class="card done" hidden>
+        <span class="icon done-icon" data-icon="check_circle.fill" aria-hidden="true"></span>
+        <p class="title">已授权</p>
+        <p class="body c-var">请回到设备继续。你可以在小程序「我的 › 登录设备」里管理这台设备。</p>
+      </section>
+    </div>
+
+    <p class="privacy">
+      <span class="icon" data-icon="shield" aria-hidden="true"></span>
+      <span>账号密码加密后保存在彩带小工具的服务器，只用于代你访问 AUFE 系统。在「我的 › 登录设备」中移除这台设备即可撤销授权。</span>
+    </p>
+  </main>
+  <script src="/device-icons.js" defer></script>
+  <script src="/device.js" defer></script>
+</body>
+</html>

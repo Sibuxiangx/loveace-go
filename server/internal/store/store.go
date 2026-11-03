@@ -205,6 +205,23 @@ type Store interface {
 	GetDevice(ctx context.Context, userID, deviceID string) (*Device, error)
 	RevokeDevice(ctx context.Context, userID, deviceID string) error
 
+	// Device authorization grants (RFC 8628). Only code hashes are stored.
+	CreateDeviceGrant(ctx context.Context, g DeviceGrant) error
+	GetDeviceGrant(ctx context.Context, id string) (*DeviceGrant, error)
+	GetDeviceGrantByDeviceCode(ctx context.Context, codeHash string) (*DeviceGrant, error)
+	GetDeviceGrantByUserCode(ctx context.Context, codeHash string) (*DeviceGrant, error)
+	// ApproveDeviceGrant moves a pending, unexpired grant to approved for
+	// userID. It reports false when the grant was no longer pending.
+	ApproveDeviceGrant(ctx context.Context, id, userID string, at time.Time) (bool, error)
+	// ConsumeDeviceGrant moves an approved grant to consumed (single use).
+	// It reports false when the grant was not approved.
+	ConsumeDeviceGrant(ctx context.Context, id string) (bool, error)
+	RecordDeviceGrantPoll(ctx context.Context, id string, at time.Time, interval int) error
+	// IncrementDeviceGrantAttempts counts a failed credential attempt and
+	// returns the new total.
+	IncrementDeviceGrantAttempts(ctx context.Context, id string) (int, error)
+	PurgeDeviceGrants(ctx context.Context, before time.Time) error
+
 	InsertRefreshToken(ctx context.Context, t RefreshToken) error
 	GetRefreshToken(ctx context.Context, hash string) (*RefreshToken, error)
 	RotateRefreshToken(ctx context.Context, oldHash, newHash string, newExpiresAt time.Time) error

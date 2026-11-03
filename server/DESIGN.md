@@ -584,3 +584,58 @@ p50 4.3s 已优于池下 8.9s。)2026-10-26:登录里的 JWC 回调改为后台�
 3. 学校侧承受力:稳态约每用户 0.33 rps,50 用户约 17 rps,为推算值,未压测。
 4. 合规:`docs/handover` 风险表第 10 条已把自动评教(80% 最高权重 + 随机评语)列为灰区;条款文本与产品决策待定。
 5. `max` 评分模式会让所有单选题取满权重,评价结果的真实性需产品与合规确认。
+
+## 16. 设备授权(OAuth 2.0 Device Grant,RFC 8628,2026-11-03)
+
+**用途**:没有键盘的设备(群机器人、硬件)拿到账号令牌,而不接触学校密码。用户在网页 `/device` 上输入设备屏幕显示的设备码,用学号和学校密码确认授权;设备轮询 token 端点取得令牌。没有 redirect,设备不需要公网回调地址。
+
+### 16.1 流程
+
+1. 设备 `POST /v1/auth/device/code`(`client_name` 必填,不超过 64 字符;`platform` 可选,不超过 32 字符),得到 `device_code`、`user_code`(形如 `XXXX-XXXX`)、`verification_uri`、`verification_uri_complete`、`expires_in=600`、`interval=5`。
+2. 设备屏幕显示 `user_code`,用户打开 `verification_uri`(或扫 complete 链接)。
+3. 页面 `GET /v1/auth/device/info?user_code=` 展示"设备 X 请求访问你的账号"。
+4. 用户提交学号和学校密码:`POST /v1/auth/device/verify`。学校要求验证码时返回 409 与 `challenge_id`,页面用 `GET /v1/auth/challenges/{id}/image` 取图,再 `POST /v1/auth/device/challenges/{id}/solution` 提交。
+5. 审批成功:凭据加密入库(vault),授权记录转为 `approved`,并绑定到该账号。
+6. 设备轮询 `POST /v1/auth/device/token`(form 或 JSON,`grant_type=urn:ietf:params:oauth:grant-type:device_code`)。成功时一次性返回与登录相同的 `TokenPair`,之后设备用 `/v1/auth/tokens/refresh` 续期。
+
+### 16.2 状态与错误码(RFC 8628 §3.5)
+
+| 设备侧错误 | 含义 |
+|---|---|
+| `authorization_pending` | 尚未审批,继续轮询 |
+| `slow_down` | 轮询早于 interval,interval 增加 5 秒 |
+| `expired_token` | 超过 10 分钟;或审批后学校会话已无法恢复 |
+| `invalid_grant` | device_code 不存在,或已兑换 |
+| `unsupported_grant_type` | grant_type 不是设备码类型 |
+
+### 16.3 数据与安全
+
+- `device_grants` 表(迁移 0008)只存 `device_code` 的 SHA-256 与 `user_code` 的 HMAC(pepper),明文码不落库。状态:pending → approved → consumed。
+- 兑换一次性:`ConsumeDeviceGrant` 是 CAS(approved → consumed),重复兑换返回 `invalid_grant`。
+- 凭据错误计数:每个 grant 最多 5 次学校凭据失败,之后 429 `device.too_many_attempts`。
+- 限流:`/v1/auth/device/code`、`/verify`、`/challenges/{id}/solution` 与登录共用每 IP 每分钟预算;`/token` 不占用该预算,只由 interval 约束。
+- 页面安全头:`Referrer-Policy: no-referrer`(用户码不经 referrer 泄露)、`frame-ancestors 'none'`(禁止嵌入)、CSP 只允许同源资源。
+- 访问日志:`GET /v1/auth/device/info` 的 `user_code` 会出现在 URL 里。它是 8 位随机码、10 分钟有效,单独不能授权。
+- 残留风险:攻击者可以诱导用户输入攻击者设备的设备码,把账号授权给攻击者设备。缓解:页面展示设备名与平台,要求输入学校密码,协议勾选;用户只应输入自己设备屏幕上的码。撤销:小程序「我的 › 登录设备」移除设备。
+
+### 16.4 与 RFC 的差异
+
+- 未实现 `access_denied`:页面没有"拒绝"按钮,不需要时直接关闭即可,设备码 10 分钟后失效。
+- `verification_uri` 依赖新增配置 `LOVEACED_PUBLIC_URL`。为空时返回相对地址 `/device`,不符合 RFC 的绝对地址要求,生产必须设置。
+- token 端点同时接受 `application/x-www-form-urlencoded`(RFC 要求)与 JSON(便于硬件实现)。
+
+### 16.5 运维
+
+- 授权记录与审批状态持久化在 PG,重启后仍可完成兑换。验证码 challenge 在内存中,重启后需重新取图。
+- 清理:每次申请设备码时删除过期超过 1 小时的记录。
+
+### 16.6 验证页
+
+- `/device` 及其静态资源(`/device.css`、`/device.js`、`/device-icons.js`、`/device-appicon.png`)由二进制内嵌(`go:embed`)。
+- 样式与文案对齐小程序登录页:M3 配色 token、相同布局、协议勾选、验证码步骤。图标是小程序 Material Symbols 的路径数据,内联在脚本里。
+- 页面不加载任何外部资源。
+
+### 16.7 测试
+
+- `TestDeviceGrant*`、`TestDeviceSolve*`、`TestDeviceVerification*`(内存存储与假学校):正常审批与单次兑换、slow_down 节流、过期、错误密码次数上限、非法输入、未知验证码、页面安全头。
+- PG 集成测试 `device_grant_test.go` 受 `LOVEACE_TEST_PG` 门控,本轮未在真实数据库上运行。

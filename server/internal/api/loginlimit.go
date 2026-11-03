@@ -55,7 +55,7 @@ func (l *loginRateLimiter) allow(ip string) (bool, time.Duration) {
 func (s *Server) loginRateGuard() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPost && r.URL.Path == "/v1/auth/sessions" {
+			if r.Method == http.MethodPost && isLoginRatePath(r.URL.Path) {
 				ip := clientIP(r)
 				if ok, retryIn := s.logins.allow(ip); !ok {
 					w.Header().Set("Content-Type", "application/problem+json")

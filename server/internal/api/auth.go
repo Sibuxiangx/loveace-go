@@ -174,76 +174,96 @@ func (r *rejectionCache) rejected(fp string) bool {
 
 func (s *Server) login(ctx context.Context, in *LoginInput) (*dto.TokenPair, error) {
 	body := in.Body
+	v, err := s.verifyLogin(ctx, body.Account, body.Password, body.GatewayPassword, body.DeviceName, body.Platform)
+	if err != nil {
+		return nil, err
+	}
+	if v.sess == nil {
+		// Session-sharing fast path (§7.5 revised): bind the new device to the
+		// user's live school session. No school calls, no extra UAAP session.
+		device, derr := s.deps.Store.CreateDevice(ctx, v.userID, body.DeviceName, body.Platform)
+		if derr != nil {
+			return nil, mapErr(derr)
+		}
+		s.deps.School.BindDevice(v.userID, device.ID, body.DeviceName, body.Platform, v.live)
+		pair, terr := s.newTokenPair(ctx, v.userID, device.ID, s.now())
+		if terr != nil {
+			return nil, mapErr(terr)
+		}
+		pair.User = s.userView(ctx, v.userID)
+		pair.User.AccountMasked = gate.MaskedAccount(v.account)
+		_ = s.deps.Store.AppendAudit(ctx, store.AuditEvent{
+			At: s.now(), UserID: v.userID, DeviceID: device.ID, Event: "login.shared",
+		})
+		return pair, nil
+	}
+	// 4. Persist credentials + device + tokens.
+	return s.finishLogin(ctx, v.userID, v.account, v.password, v.gwPass, body.DeviceName, body.Platform, v.fp, v.sess)
+}
 
-	// 1. Local pre-validation (§5.1): never touch the school, never count
-	// as a failure. Applies to the gateway password too.
-	if res := gate.ValidatePasswordFormat(body.Password, s.deps.Cfg.PasswordMaxLen); !res.OK {
+// verifiedLogin is an identity the school accepted. Creating a device or
+// issuing tokens is the caller's decision.
+type verifiedLogin struct {
+	userID   string
+	account  string
+	password string
+	gwPass   string
+	fp       string
+	sess     *session.Session // full school login; nil when a live session was reused
+	live     *session.Session // reused live session; nil on a full login
+}
+
+// verifyLogin validates the request, consults the rejection cache, and proves
+// the credentials against the school. It creates no device and issues no tokens.
+func (s *Server) verifyLogin(ctx context.Context, rawAccount, password, gatewayPassword, deviceName, platform string) (*verifiedLogin, error) {
+	// 1. Local pre-validation (§5.1): never touch the school, never count as a failure.
+	if res := gate.ValidatePasswordFormat(password, s.deps.Cfg.PasswordMaxLen); !res.OK {
 		return nil, passwordProblem(res)
 	}
-	gwPass := body.GatewayPassword
+	gwPass := gatewayPassword
 	if gwPass == "" {
-		gwPass = body.Password // §6: gateway password defaults to the school password
+		gwPass = password // §6: gateway password defaults to the school password
 	}
-	if gwPass != body.Password {
+	if gwPass != password {
 		if res := gate.ValidatePasswordFormat(gwPass, s.deps.Cfg.PasswordMaxLen); !res.OK {
 			return nil, passwordProblem(res)
 		}
 	}
 
-	account := trimAccount(body.Account)
+	account := trimAccount(rawAccount)
 	if account == "" {
 		return nil, newProblem(http.StatusUnprocessableEntity, "auth.invalid_account", "学号不能为空")
 	}
 
-	// 2. Rejected fingerprint (§5.2 step 2): the school already refused
-	// this exact pair recently; do not submit it again.
-	fp := vault.Fingerprint(s.deps.Pepper, account, body.Password)
+	// 2. Rejected fingerprint (§5.2 step 2): do not resubmit a recently refused pair.
+	fp := vault.Fingerprint(s.deps.Pepper, account, password)
 	if s.rejections.rejected(fp) {
 		return nil, newProblem(http.StatusUnauthorized, "school.credentials_invalid",
 			"该账号与密码最近已被学校拒绝，请确认后重试")
 	}
 
-	// 3. School-side verification (direct full login in M1).
+	// 3. School-side verification.
 	u, _, err := s.deps.Store.GetOrCreateUser(ctx, vault.AccountHash(s.deps.Pepper, account))
 	if err != nil {
 		return nil, mapErr(err)
 	}
 
-	// 3.5 Session-sharing fast path (§7.5 revised): the UAAP layer has no
-	// ban budget — the EC gateway does. When the user already has a live
-	// school session and the presented password matches the vault, bind
-	// the new device to the SHARED session: zero school calls, zero extra
-	// UAAP sessions, zero captcha surface. A vault mismatch falls through
-	// to the full login: the presented password may simply be newer than
-	// the vault (the school validates it and the login refreshes the
-	// vault).
+	// 3.5 Session-sharing (§7.5 revised): when the presented password matches
+	// the vault and a live school session exists, reuse it. A mismatch falls
+	// through to a full login, which refreshes the vault.
 	if live, ok := s.deps.School.LiveSession(u.ID); ok {
 		if cred, cerr := s.deps.Store.GetCredential(ctx, u.ID); cerr == nil {
 			if plaintext, derr := s.deps.Vault.Decrypt(u.ID, cred.Blob); derr == nil {
 				var payload vault.CredPayload
 				if jerr := json.Unmarshal(plaintext, &payload); jerr == nil && payload.Password != "" &&
-					subtle.ConstantTimeCompare([]byte(payload.Password), []byte(body.Password)) == 1 {
-					device, derr := s.deps.Store.CreateDevice(ctx, u.ID, body.DeviceName, body.Platform)
-					if derr != nil {
-						return nil, mapErr(derr)
-					}
-					s.deps.School.BindDevice(u.ID, device.ID, body.DeviceName, body.Platform, live)
-					pair, terr := s.newTokenPair(ctx, u.ID, device.ID, s.now())
-					if terr != nil {
-						return nil, mapErr(terr)
-					}
-					pair.User = s.userView(ctx, u.ID)
-					pair.User.AccountMasked = gate.MaskedAccount(account)
-					_ = s.deps.Store.AppendAudit(ctx, store.AuditEvent{
-						At: s.now(), UserID: u.ID, DeviceID: device.ID, Event: "login.shared",
-					})
-					return pair, nil
+					subtle.ConstantTimeCompare([]byte(payload.Password), []byte(password)) == 1 {
+					return &verifiedLogin{userID: u.ID, account: account, password: password, gwPass: gwPass, fp: fp, live: live}, nil
 				}
 			}
 		}
 	}
 
-	sess, err := s.deps.School.Login(ctx, u.ID, account, body.Password, gwPass, body.DeviceName, body.Platform)
+	sess, err := s.deps.School.Login(ctx, u.ID, account, password, gwPass, deviceName, platform)
 	if err != nil {
 		if errs.CodeOf(err) == errs.InvalidCredentials {
 			s.rejections.mark(fp)
@@ -251,9 +271,7 @@ func (s *Server) login(ctx context.Context, in *LoginInput) (*dto.TokenPair, err
 		}
 		return nil, mapErr(err)
 	}
-
-	// 4. Persist credentials + device + tokens.
-	return s.finishLogin(ctx, u.ID, account, body.Password, gwPass, body.DeviceName, body.Platform, fp, sess)
+	return &verifiedLogin{userID: u.ID, account: account, password: password, gwPass: gwPass, fp: fp, sess: sess}, nil
 }
 
 func (s *Server) solveChallenge(ctx context.Context, in *ChallengeSolveInput) (*dto.TokenPair, error) {
@@ -275,24 +293,8 @@ func (s *Server) solveChallenge(ctx context.Context, in *ChallengeSolveInput) (*
 // finishLogin stores credentials, creates the device, issues the token pair.
 func (s *Server) finishLogin(ctx context.Context, userID, account, password, gwPass, deviceName, platform, fp string, sess *session.Session) (*dto.TokenPair, error) {
 	now := s.now()
-	payload, err := json.Marshal(vault.CredPayload{
-		Account:         account,
-		Password:        password,
-		GatewayPassword: gwPass,
-	})
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	blob, err := s.deps.Vault.Encrypt(userID, payload)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	cred := store.Credential{UserID: userID, Blob: blob, Fingerprint: fp, UpdatedAt: now}
-	if err := s.deps.Store.UpsertCredential(ctx, cred); err != nil {
-		return nil, mapErr(err)
-	}
-	if err := s.deps.Store.SetCredentialState(ctx, userID, store.CredValid); err != nil {
-		return nil, mapErr(err)
+	if err := s.storeCredentials(ctx, userID, account, password, gwPass, fp); err != nil {
+		return nil, err
 	}
 	device, err := s.deps.Store.CreateDevice(ctx, userID, deviceName, platform)
 	if err != nil {
@@ -313,6 +315,31 @@ func (s *Server) finishLogin(ctx context.Context, userID, account, password, gwP
 		At: now, UserID: userID, DeviceID: device.ID, Event: "login.success",
 	})
 	return pair, nil
+}
+
+// storeCredentials encrypts the school credentials into the vault and marks
+// them valid. It creates no device and issues no tokens.
+func (s *Server) storeCredentials(ctx context.Context, userID, account, password, gwPass, fp string) error {
+	payload, err := json.Marshal(vault.CredPayload{
+		Account:         account,
+		Password:        password,
+		GatewayPassword: gwPass,
+	})
+	if err != nil {
+		return mapErr(err)
+	}
+	blob, err := s.deps.Vault.Encrypt(userID, payload)
+	if err != nil {
+		return mapErr(err)
+	}
+	cred := store.Credential{UserID: userID, Blob: blob, Fingerprint: fp, UpdatedAt: s.now()}
+	if err := s.deps.Store.UpsertCredential(ctx, cred); err != nil {
+		return mapErr(err)
+	}
+	if err := s.deps.Store.SetCredentialState(ctx, userID, store.CredValid); err != nil {
+		return mapErr(err)
+	}
+	return nil
 }
 
 func (s *Server) refresh(ctx context.Context, in *RefreshInput) (*dto.TokenPair, error) {

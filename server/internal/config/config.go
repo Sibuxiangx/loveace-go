@@ -59,6 +59,9 @@ type Config struct {
 	// Default: loopback only (the host reverse proxy). Headers from any other
 	// peer are ignored, so a client cannot spoof its address for rate limits.
 	TrustedProxies []*net.IPNet
+	// PublicURL is the externally reachable base URL (LOVEACED_PUBLIC_URL),
+	// used to build the device verification link. Empty means relative only.
+	PublicURL string
 
 	// DevMode is true for an explicit throwaway run (LOVEACED_DEV=1) that
 	// uses ephemeral keys and/or the in-memory store.
@@ -79,6 +82,7 @@ func Load() (Config, error) {
 		CaptchaModelPath:   os.Getenv("LOVEACED_CAPTCHA_MODEL"),
 		CaptchaStoreDir:    os.Getenv("LOVEACED_CAPTCHA_STORE"),
 		TeacherEvalEnabled: os.Getenv("LOVEACED_TEACHER_EVAL_ENABLED") == "1",
+		PublicURL:          os.Getenv("LOVEACED_PUBLIC_URL"),
 	}
 	devRequested := os.Getenv("LOVEACED_DEV") == "1"
 
