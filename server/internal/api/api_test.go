@@ -75,6 +75,12 @@ func invalidIdentityTransport(t *testing.T) *transport.MockTransport {
 
 func newTestServer(t *testing.T, tr *transport.MockTransport) http.Handler {
 	t.Helper()
+	return newTestServerCfg(t, tr, config.Config{})
+}
+
+// newTestServerCfg is newTestServer with the review settings taken from extra.
+func newTestServerCfg(t *testing.T, tr *transport.MockTransport, extra config.Config) http.Handler {
+	t.Helper()
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +90,8 @@ func newTestServer(t *testing.T, tr *transport.MockTransport) http.Handler {
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 30 * 24 * time.Hour,
 		KEKVersion:      "v1",
+		ReviewAccount:   extra.ReviewAccount,
+		ReviewPassword:  extra.ReviewPassword,
 	}
 	v, err := vault.New(bytes.Repeat([]byte{1}, 32), "v1")
 	if err != nil {

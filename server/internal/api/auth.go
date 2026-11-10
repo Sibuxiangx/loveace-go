@@ -174,6 +174,10 @@ func (r *rejectionCache) rejected(fp string) bool {
 
 func (s *Server) login(ctx context.Context, in *LoginInput) (*dto.TokenPair, error) {
 	body := in.Body
+	// The review account is answered from fixtures and never reaches the school (review.go).
+	if account := trimAccount(body.Account); s.reviewer.matches(account) {
+		return s.loginReview(ctx, account, body.Password, body.DeviceName, body.Platform)
+	}
 	v, err := s.verifyLogin(ctx, body.Account, body.Password, body.GatewayPassword, body.DeviceName, body.Platform)
 	if err != nil {
 		return nil, err

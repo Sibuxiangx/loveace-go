@@ -83,6 +83,9 @@ func (s *Server) teachStatus(ctx context.Context, in *teachStatusInput) (*Output
 	if err != nil {
 		return nil, err
 	}
+	if s.reviewed(ctx, claims.UserID) {
+		return &Output[teachStatusBody]{Status: http.StatusOK, Body: teachStatusBody{CheckedAt: s.now(), ClosedMessage: "审核账号不参与自动评教"}}, nil
+	}
 	st, err := s.deps.Teach.Status(ctx, claims.UserID, claims.DeviceID, in.Fresh)
 	if err != nil {
 		return nil, teachProblem(err, nil)
@@ -113,6 +116,9 @@ func (s *Server) teachCreate(ctx context.Context, in *teachCreateInput) (*Output
 	claims, err := s.authenticate(ctx, in.RawAuthorization)
 	if err != nil {
 		return nil, err
+	}
+	if s.reviewed(ctx, claims.UserID) {
+		return nil, refuseReviewWrite()
 	}
 	if in.IdempotencyKey == "" {
 		return nil, newProblem(http.StatusPreconditionRequired, "idempotency_key_required", "创建任务必须携带 Idempotency-Key 头")

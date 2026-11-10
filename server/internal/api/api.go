@@ -55,6 +55,7 @@ type Server struct {
 	rejections       *rejectionCache
 	logins           *loginRateLimiter
 	deviceChallenges *deviceChallenges
+	reviewer         *reviewAccount
 	now              func() time.Time
 }
 
@@ -79,6 +80,7 @@ func New(d Deps) *Server {
 		rejections:       newRejectionCache(15*time.Minute, time.Now),
 		logins:           newLoginRateLimiter(perMinute, time.Now),
 		deviceChallenges: newDeviceChallenges(time.Now),
+		reviewer:         newReviewAccount(d),
 		now:              time.Now,
 	}
 }

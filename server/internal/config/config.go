@@ -66,6 +66,12 @@ type Config struct {
 	// DevMode is true for an explicit throwaway run (LOVEACED_DEV=1) that
 	// uses ephemeral keys and/or the in-memory store.
 	DevMode bool
+
+	// ReviewAccount and ReviewPassword enable the store-review account
+	// (LOVEACED_REVIEW_*). It is answered from fixtures and never logs in to the
+	// school. Both empty = off; setting only one is treated as off.
+	ReviewAccount  string
+	ReviewPassword string
 }
 
 // Load reads the environment and fills defaults. Missing key material or a
@@ -83,6 +89,16 @@ func Load() (Config, error) {
 		CaptchaStoreDir:    os.Getenv("LOVEACED_CAPTCHA_STORE"),
 		TeacherEvalEnabled: os.Getenv("LOVEACED_TEACHER_EVAL_ENABLED") == "1",
 		PublicURL:          os.Getenv("LOVEACED_PUBLIC_URL"),
+	}
+
+	// The review account is opt-in and needs both halves; a lone half is ignored.
+	c.ReviewAccount, c.ReviewPassword = os.Getenv("LOVEACED_REVIEW_ACCOUNT"), os.Getenv("LOVEACED_REVIEW_PASSWORD")
+	if (c.ReviewAccount == "") != (c.ReviewPassword == "") {
+		fmt.Fprintln(os.Stderr, "loveaced: review account ignored: LOVEACED_REVIEW_ACCOUNT and LOVEACED_REVIEW_PASSWORD must both be set")
+		c.ReviewAccount, c.ReviewPassword = "", ""
+	}
+	if c.ReviewAccount != "" {
+		fmt.Fprintln(os.Stderr, "loveaced: review account enabled (fixtures only, no school traffic)")
 	}
 	devRequested := os.Getenv("LOVEACED_DEV") == "1"
 

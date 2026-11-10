@@ -90,6 +90,9 @@ func (s *Server) runOp(ctx context.Context, userID, deviceID, opName string, arg
 	if !ok || !opsAuthz(opName) {
 		return 0, nil, newProblem(http.StatusNotFound, "not_found", "没有这个操作")
 	}
+	if s.reviewed(ctx, userID) {
+		return reviewRunOp(spec.Name, spec.Mutates, idemKey)
+	}
 	argsJSON, err := json.Marshal(args)
 	if err != nil || len(argsJSON) == 0 {
 		argsJSON = []byte("{}")

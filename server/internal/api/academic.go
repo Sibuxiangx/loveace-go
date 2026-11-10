@@ -35,11 +35,12 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:summary:"+claims.UserID, ttlSummary, func(ctx context.Context) (any, error) {
-			info, err := s.deps.School.AcademicSummary(ctx, claims.UserID, claims.DeviceID)
+			info, err := src.AcademicSummary(ctx, claims.UserID, claims.DeviceID)
 			if err != nil {
 				return nil, err
 			}
@@ -62,11 +63,12 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:terms:"+claims.UserID, ttlTerms, func(ctx context.Context) (any, error) {
-			terms, err := s.deps.School.Terms(ctx, claims.UserID, claims.DeviceID)
+			terms, err := src.Terms(ctx, claims.UserID, claims.DeviceID)
 			if err != nil {
 				return nil, err
 			}
@@ -89,11 +91,12 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:scores:"+claims.UserID+":"+in.Term, ttlTermScores, func(ctx context.Context) (any, error) {
-			page, err := s.deps.School.TermScores(ctx, claims.UserID, claims.DeviceID, in.Term)
+			page, err := src.TermScores(ctx, claims.UserID, claims.DeviceID, in.Term)
 			if err != nil {
 				return nil, err
 			}
@@ -116,11 +119,12 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:plan:"+claims.UserID, ttlPlan, func(ctx context.Context) (any, error) {
-			outcome, err := s.deps.School.PlanCompletion(ctx, claims.UserID, claims.DeviceID)
+			outcome, err := src.PlanCompletion(ctx, claims.UserID, claims.DeviceID)
 			if err != nil {
 				return nil, err
 			}
@@ -143,11 +147,12 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:planinfo:"+claims.UserID, ttlPlan, func(ctx context.Context) (any, error) {
-			info, err := s.deps.School.TrainingPlan(ctx, claims.UserID, claims.DeviceID)
+			info, err := src.TrainingPlan(ctx, claims.UserID, claims.DeviceID)
 			if err != nil {
 				return nil, err
 			}
@@ -170,11 +175,12 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:exams:"+claims.UserID, ttlTermScores, func(ctx context.Context) (any, error) {
-			exams, err := s.deps.School.Exams(ctx, claims.UserID, claims.DeviceID)
+			exams, err := src.Exams(ctx, claims.UserID, claims.DeviceID)
 			if err != nil {
 				return nil, err
 			}
@@ -197,14 +203,15 @@ func (s *Server) registerAcademic(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		if in.Term == "" {
 			return nil, newProblem(http.StatusUnprocessableEntity, "invalid_argument", "缺少学期代码 term")
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:timetable:"+claims.UserID+":"+in.Term, ttlPlan, func(ctx context.Context) (any, error) {
-			schedule, err := s.deps.School.Timetable(ctx, claims.UserID, claims.DeviceID, in.Term)
+			schedule, err := src.Timetable(ctx, claims.UserID, claims.DeviceID, in.Term)
 			if err != nil {
 				return nil, err
 			}
@@ -248,7 +255,8 @@ func (s *Server) registerMergedTimetable(api huma.API) {
 		if in.Term == "" {
 			return nil, newProblem(http.StatusUnprocessableEntity, "invalid_argument", "缺少学期代码 term")
 		}
-		if err := s.ensureSession(ctx, claims.UserID, claims.DeviceID); err != nil {
+		src, err := s.academicFor(ctx, claims)
+		if err != nil {
 			return nil, err
 		}
 		term, _, err := s.calendarDays(ctx, in.Term, in.From, in.To, "published")
@@ -256,7 +264,7 @@ func (s *Server) registerMergedTimetable(api huma.API) {
 			return nil, err
 		}
 		e, err := s.cache.GetOrLoadSWR(ctx, "academic:timetable:merged:"+claims.UserID+":"+in.Term, ttlPlan, func(ctx context.Context) (any, error) {
-			schedule, err := s.deps.School.Timetable(ctx, claims.UserID, claims.DeviceID, in.Term)
+			schedule, err := src.Timetable(ctx, claims.UserID, claims.DeviceID, in.Term)
 			if err != nil {
 				return nil, err
 			}
@@ -268,7 +276,7 @@ func (s *Server) registerMergedTimetable(api huma.API) {
 			// place the post-teaching exam season appears (teaching ends
 			// ~week 16-18; exams follow). A failing exam fetch fails the
 			// request: silently omitting exams would hide them.
-			exams, err := s.deps.School.Exams(ctx, claims.UserID, claims.DeviceID)
+			exams, err := src.Exams(ctx, claims.UserID, claims.DeviceID)
 			if err != nil {
 				return nil, err
 			}

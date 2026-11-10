@@ -639,3 +639,16 @@ p50 4.3s 已优于池下 8.9s。)2026-10-26:登录里的 JWC 回调改为后台�
 
 - `TestDeviceGrant*`、`TestDeviceSolve*`、`TestDeviceVerification*`(内存存储与假学校):正常审批与单次兑换、slow_down 节流、过期、错误密码次数上限、非法输入、未知验证码、页面安全头。
 - PG 集成测试 `device_grant_test.go` 受 `LOVEACE_TEST_PG` 门控,本轮未在真实数据库上运行。
+
+## 17. 审核账号(应用商店 / 微信小程序审核,2026-11-10)
+
+- 目的:给审核人员一个可登录、功能可走通的账号,但不让审核真实操作学校(不真实报名、不真实缴费)。
+- 启用:`LOVEACED_REVIEW_ACCOUNT` 与 `LOVEACED_REVIEW_PASSWORD` **两项都设**才生效;缺一项整体关闭,配置层打印一行警告。口令只存在服务器环境变量中,不进仓库、不进日志。
+- 登录:`login()` 最前面判断账号。命中则只比对口令(`subtle.ConstantTimeCompare`),跳过 §5.1 格式预校验,不建学校会话、不写保险库、不计入 rejections、不触网关。通过后建立普通的用户行、设备与令牌,凭据状态直接为 valid。口令错误返回 401 `school.credentials_invalid`。
+- 读取:`academicFor` 与 `runOp` 对审核用户返回 `server/internal/review` 的固定假数据。数据全部合成(姓名、学号、成绩、余额)。报名窗口相对当前时间生成,使"可报名 / 人数已满 / 未开始"三种状态随时可见。
+- 写入:只放行 `labor.apply_activity`(固定返回"报名成功",不改变任何状态)与 `aac/labor.reset_ticket`(返回成功)。其余写操作一律 403 `review.write_refused`。写操作仍要求 `Idempotency-Key`,与学生的契约一致。
+- 教评:`teacher-eval/status` 返回关闭;创建任务返回 403。
+- 未覆盖的读操作返回 404 `not_found`。这是有意的:缺口可见,而不是静默返回别人的数据。
+- 令牌:审核账号的令牌是普通令牌。改口令不会使已签发的 refresh token 失效,需要时吊销设备或更换 JWT seed。
+- 测试:`server/internal/api/review_test.go` 断言审核账号的登录、读取、写入、登出、教评全程零学校请求;开关关闭时同一凭据走学校路径,证明开关有效。`server/internal/review/fixtures_test.go` 固定写白名单与报名窗口状态。
+- 运维:见 `docs/maintenance.md` §3.1。
