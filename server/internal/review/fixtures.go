@@ -64,6 +64,14 @@ func ReadOp(name string) (any, bool) {
 		return portalConsumption(now), true
 	case "portal.mail_initial_password":
 		return portalMail(), true
+	case "jwc.free_classroom_buildings":
+		return classroomBuildings(), true
+	case "jwc.free_classroom_meta":
+		return classroomMeta(), true
+	case "jwc.free_classroom_search", "jwc.free_classroom_rooms":
+		return classroomRooms(), true
+	case "jwc.free_classroom_occupancy":
+		return classroomOccupancy(), true
 	}
 	return nil, false
 }

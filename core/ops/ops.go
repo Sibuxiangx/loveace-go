@@ -145,6 +145,16 @@ func jwcOps() []Spec {
 			req("plan_code", ArgString), req("department_code", ArgString), opt("subject_code", ArgString)),
 		readOp("jwc.class_curriculum", "Class curriculum",
 			req("plan_code", ArgString), req("class_code", ArgString)),
+		readOp("jwc.free_classroom_buildings", "Teaching buildings of both campuses (free-classroom query)"),
+		readOp("jwc.free_classroom_meta", "Free-classroom query: current week and classroom types"),
+		readOp("jwc.free_classroom_search", "Classrooms free in every selected week and slot",
+			req("weeks", ArgStringArray), req("slots", ArgStringArray),
+			opt("campus_number", ArgString), opt("building_number", ArgString), opt("type_code", ArgString)),
+		readOp("jwc.free_classroom_rooms", "All classrooms of one building with their status",
+			req("campus_number", ArgString), req("building_number", ArgString), req("building_name", ArgString)),
+		readOp("jwc.free_classroom_occupancy", "Occupied slots of one classroom (weekday_week_section tokens)",
+			req("campus_number", ArgString), req("building_number", ArgString), req("building_name", ArgString),
+			req("classroom_number", ArgString)),
 		readOp("jwc.teacher_eval_courses", "Teacher-evaluation courses"),
 		writeOp("jwc.teacher_eval_prepare", "Prepare an evaluation form",
 			req("course", ArgObject), req("pending_count", ArgInteger), req("index_token", ArgString),
@@ -330,6 +340,14 @@ func optStrArg(params json.RawMessage, key string) *string {
 		return nil
 	}
 	return &s
+}
+
+// optionalString reads an optional string argument; a missing or empty value is "".
+func optionalString(params json.RawMessage, key string) string {
+	if v := optStrArg(params, key); v != nil {
+		return *v
+	}
+	return ""
 }
 
 func i64Arg(params json.RawMessage, key string) (int64, error) {
@@ -642,6 +660,58 @@ func dispatchInner(ctx context.Context, s *session.Session, operation string, pa
 			Course: course, QuestionnaireTitle: title, FormData: formData,
 		}
 		return marshalResult(j.TeacherEvalSubmit(ctx, &prepared))
+	case "jwc.free_classroom_buildings":
+		return marshalResult(j.FreeClassroomBuildings(ctx))
+	case "jwc.free_classroom_meta":
+		return marshalResult(j.FreeClassroomMeta(ctx))
+	case "jwc.free_classroom_search":
+		weeks, err := stringArrayArg(params, "weeks")
+		if err != nil {
+			return nil, err
+		}
+		slots, err := stringArrayArg(params, "slots")
+		if err != nil {
+			return nil, err
+		}
+		return marshalResult(j.FreeClassroomSearch(ctx, jwc.FreeClassroomQuery{
+			Weeks:          weeks,
+			Slots:          slots,
+			CampusNumber:   optionalString(params, "campus_number"),
+			BuildingNumber: optionalString(params, "building_number"),
+			TypeCode:       optionalString(params, "type_code"),
+		}))
+	case "jwc.free_classroom_rooms":
+		campus, err := strArg(params, "campus_number")
+		if err != nil {
+			return nil, err
+		}
+		building, err := strArg(params, "building_number")
+		if err != nil {
+			return nil, err
+		}
+		name, err := strArg(params, "building_name")
+		if err != nil {
+			return nil, err
+		}
+		return marshalResult(j.FreeClassroomRooms(ctx, campus, building, name))
+	case "jwc.free_classroom_occupancy":
+		campus, err := strArg(params, "campus_number")
+		if err != nil {
+			return nil, err
+		}
+		building, err := strArg(params, "building_number")
+		if err != nil {
+			return nil, err
+		}
+		name, err := strArg(params, "building_name")
+		if err != nil {
+			return nil, err
+		}
+		classroom, err := strArg(params, "classroom_number")
+		if err != nil {
+			return nil, err
+		}
+		return marshalResult(j.FreeClassroomOccupancy(ctx, campus, building, name, classroom))
 	case "jwc.teacher_eval_verify":
 		courseRaw, err := objectArg(params, "course")
 		if err != nil {

@@ -1,6 +1,6 @@
 # LoveACE 操作参考(ops catalog)
 
-> 由 `core/ops` 注册表生成(`./bin/loveace operations` 的 JSON 数据),共 77 项。
+> 由 `core/ops` 注册表生成(`./bin/loveace operations` 的 JSON 数据),共 82 项。
 > 最后生成:2026-11-16。目录改动后请重新生成本节。
 
 ## 调用方式
@@ -86,6 +86,11 @@ Idempotency-Key: <唯一键>        # 仅写操作必需
 | `jwc.teacher_eval_prepare` | Prepare an evaluation form | `course` 对象（必填）、`pending_count` 整数（必填）、`index_token` 字符串（必填）、`seed` 整数（可选） | ✔ |
 | `jwc.teacher_eval_submit` | Submit an evaluation form | `course` 对象（必填）、`questionnaire_title` 字符串（必填）、`form_data` 对象（必填） | ✔ |
 | `jwc.teacher_eval_verify` | Verify a course is evaluated | `course` 对象（必填） |  |
+| `jwc.free_classroom_buildings` | Teaching buildings of both campuses (free-classroom query) | — |  |
+| `jwc.free_classroom_meta` | Free-classroom query: current week and classroom types | — |  |
+| `jwc.free_classroom_search` | Classrooms free in every selected week and slot | `weeks` 字符串数组（必填，1–24）、`slots` 字符串数组（必填，`weekday/section`，周 1–7、节 1–10）、`campus_number` 字符串（可选）、`building_number` 字符串（可选）、`type_code` 字符串（可选） |  |
+| `jwc.free_classroom_rooms` | All classrooms of one building with their status | `campus_number` 字符串（必填）、`building_number` 字符串（必填）、`building_name` 字符串（必填） |  |
+| `jwc.free_classroom_occupancy` | Occupied slots of one classroom (weekday_week_section tokens) | `campus_number` 字符串（必填）、`building_number` 字符串（必填）、`building_name` 字符串（必填）、`classroom_number` 字符串（必填） |  |
 
 ## ykt
 

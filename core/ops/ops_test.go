@@ -124,6 +124,8 @@ func TestCatalogMatchesRustOperationNames(t *testing.T) {
 		"isim.buildings", "isim.floors", "isim.rooms", "isim.electricity",
 		"competition.info",
 		"portal.access_records", "portal.borrowing", "portal.consumption_records", "portal.mail_initial_password",
+		"jwc.free_classroom_buildings", "jwc.free_classroom_meta", "jwc.free_classroom_search",
+		"jwc.free_classroom_rooms", "jwc.free_classroom_occupancy",
 		"repair.orders", "repair.order_detail", "repair.form_data",
 		"repair.upload_image", "repair.submit",
 		"manifest.v2", "announcements.list",

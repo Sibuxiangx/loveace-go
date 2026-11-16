@@ -9,7 +9,7 @@
 LoveACE 的 Go 版核心库,从 Rust 的 `../LoveACE-core`(只读,不要改)迁移而来,
 目标是承载至多 2000 人同时在线的后端。**当前状态:M0~M6 + M5 全部完成**:
 
-- 核心库 `core/`(认证、会话、77 项学校操作、操作注册表、会话池、
+- 核心库 `core/`(认证、会话、82 项学校操作、操作注册表、会话池、
   **验证码 ONNX 推理 `core/captcha`**)
 - CLI `cmd/loveace`(call / shell / operations / self-test / bench)
 - 后端 `server/` 全功能:auth(Ed25519+刷新轮换+设备)、academic 读接口 +
@@ -55,7 +55,7 @@ loveace-go/
 ├── core/                  库代码(import 前缀 github.com/Sibuxiangx/loveace-go/core/<包>)
 │   ├── config cookies crypto detector diagnostics errs events retry timeutil transport session
 │   ├── services/          aac common competition isim jwc labor manifest portal repair ykt
-│   ├── ops/               操作目录(77 项)+ JSON 分发,CLI 与服务器共用
+│   ├── ops/               操作目录(82 项)+ JSON 分发,CLI 与服务器共用
 │   ├── sessionpool/       分片 + TTL + 单飞的会话池
 │   ├── internal/testutil/ 登录 fixture(MockTransport + 动态 RSA;core 内部,server 不可导入)
 │   └── loveace.go         门面:Client(共享连接池、每主机并发限制、登录限速)
@@ -80,7 +80,7 @@ loveace-go/
 ├── deploy/                部署:Containerfile、compose.yml、Caddy 站点、
 │                          .env.example(真实 .env 已 gitignore)
 ├── docs/STATUS.md         逐操作迁移状态(**部分内容已过时,见 §6**)
-├── docs/ops.md            操作参考(77 项,由 core/ops 注册表生成;目录改动后重新生成)
+├── docs/ops.md            操作参考(82 项,由 core/ops 注册表生成;目录改动后重新生成)
 ├── docs/maintenance.md    维护手册(部署/密钥/备份/事故处理)
 ├── AGENTS.local.md        私有环境与凭据(**gitignore**,可含密钥)
 └── bin/                   编译产物(gitignore)
@@ -373,6 +373,15 @@ ecpool 退场由 §7 的新模型替代):
 - 实网只读验证(2026-11-16,授权账号):四个 op 全部成功,网关对 CAS 跳转的 Location 改写在线上成立。消费记录"本月"为 0,与旧接口在 11 月的 0 条一致(旧接口 10 月有 8 条)。非空解析没有在真实数据上验证。
 - 未覆盖:没有调用 `isNeedSecondAuth`(调研记录的门户二次验证接口)。学校若对门户启用二次验证,会表现为登录页或 hpdata 失败。其他用户的日期默认值与字段组合未验证。
 
+### 空闲教室(jwc,2026-11-16)
+
+- 包 `core/services/jwc/free_classroom.go`,op 为 `jwc.free_classroom_buildings`、`jwc.free_classroom_meta`、`jwc.free_classroom_search`、`jwc.free_classroom_rooms`、`jwc.free_classroom_occupancy`。接口与移动端一致:TeachBuildingName(form,按校区 2、1 各一次)、custom 页面(周次与教室类型)、search(form,分页直到 totalCount,最多 10 页,每页 200)、classroomCurriculum/{校区}/{楼}/classroomJson(整楼教室)、classroomQuery(隐藏域 `wsSection` 占用 token)。
+- 周次与节次必填且必须明确。调研记录显示空周次的结果不稳定(西校不限楼、周次为空 55 条,周次 8 为 57 条,不满足子集关系),所以非法或空参数在发请求前拒绝。
+- 结果保留学校原始行:同一间教室可能有多行,停用判定与合并规则(移动端 `FreeClassroomRules`)没有在 Go 端复刻,由客户端合并。
+- 占用 token 为 `weekday_week_section`(周 1–7,节 1–10)。2026-11-16 实测:通慧楼 XJTH3-102 在第 11 周周二第 7 节空闲(搜索结果包含它),占用集合中没有 `2_11_7`,两个接口一致。
+- 实网只读验证:五个 op 全部成功。通慧楼编号 36;第 11 周周二第 7 节西校通慧楼空闲 14 间;该楼 144 行,状态码 01/02/03 分别为 95/12/37。
+- 未验证:同一教室多行的合并结果;搜索超过一页的分页路径(本次一页内取完)。
+
 ### 实网(2026-10-21, E-D 直连容量 + 错密码风暴, 用户授权)
 
 压测工具新增 `-bad N`(错密码风暴,内存内损坏 UAAP+网关双密码,
@@ -479,7 +488,7 @@ export PATH=$HOME/sdk/go/bin:$PATH
 cd <repo>
 go build ./... && go vet ./... && go test -race ./...      # vet 现在是干净的
 go build -o bin/loveace ./cmd/loveace
-./bin/loveace operations                                   # 77 个操作
+./bin/loveace operations                                   # 82 个操作
 ./bin/loveace self-test                                    # 离线自检
 ./bin/loveace bench --sessions 1000 --ops jwc.academic_info
 # 实网(需要 .env.test;多步测试用 shell 模式,写操作加 --allow-write)
