@@ -56,6 +56,14 @@ func ReadOp(name string) (any, bool) {
 		return planCompletion(), true
 	case "competition.info":
 		return competitionInfo(), true
+	case "portal.access_records":
+		return portalAccess(now), true
+	case "portal.borrowing":
+		return portalBorrowing(now), true
+	case "portal.consumption_records":
+		return portalConsumption(now), true
+	case "portal.mail_initial_password":
+		return portalMail(), true
 	}
 	return nil, false
 }

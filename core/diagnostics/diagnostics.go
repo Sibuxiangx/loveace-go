@@ -29,7 +29,7 @@ type Redactor struct{}
 var sensitiveNames = []string{
 	"authorization", "cookie", "setcookie", "password", "passwd", "token",
 	"ticket", "csrf", "secret", "credential", "jessionid", "jsessionid",
-	"twfid", "username", "session", "svpnname", "svpnpassword",
+	"twfid", "username", "session", "svpnname", "svpnpassword", "defaultpwd",
 }
 
 // IsSensitive reports whether a header/field name is sensitive.
@@ -136,8 +136,8 @@ func (r Redactor) Headers(headers [][2]string) [][2]string {
 
 var (
 	reXMLAuth = regexp.MustCompile(`(?is)(<(?:csrf_rand_code|twfid|rsa_encrypt_key|rsa_encrypt_exp)[^>]*>)(.*?)(</(?:csrf_rand_code|twfid|rsa_encrypt_key|rsa_encrypt_exp)>)`)
-	reKV      = regexp.MustCompile(`(?i)(password|passwd|token|ticket|csrf|secret|authorization|cookie|set-cookie|jessionid|jsessionid|twfid|lt|execution)(\s*[=:]\s*)([^&\s,;<>"']+)`)
-	reJSON    = regexp.MustCompile(`(?i)("?(?:password|passwd|token|ticket|csrf|secret|jessionid|jsessionid|twfid|lt|execution)"?\s*:\s*"?)([^",}\s]+)`)
+	reKV      = regexp.MustCompile(`(?i)(password|passwd|defaultpwd|token|ticket|csrf|secret|authorization|cookie|set-cookie|jessionid|jsessionid|twfid|lt|execution)(\s*[=:]\s*)([^&\s,;<>"']+)`)
+	reJSON    = regexp.MustCompile(`(?i)("?(?:password|passwd|defaultpwd|token|ticket|csrf|secret|jessionid|jsessionid|twfid|lt|execution)"?\s*:\s*"?)([^",}\s]+)`)
 )
 
 // Text redacts known secret-bearing fields inside free text.

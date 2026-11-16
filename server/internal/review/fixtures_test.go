@@ -74,3 +74,15 @@ func parseStamp(t *testing.T, s string) time.Time {
 	}
 	return parsed
 }
+
+// Every portal read has a synthetic answer, and none is writable.
+func TestPortalFixturesAnswerEveryReadAndNoWrite(t *testing.T) {
+	for _, op := range []string{"portal.access_records", "portal.borrowing", "portal.consumption_records", "portal.mail_initial_password"} {
+		if out, ok := ReadOp(op); !ok || out == nil {
+			t.Fatalf("%s has no fixture", op)
+		}
+		if _, ok := WriteOp(op); ok {
+			t.Fatalf("%s must not be writable", op)
+		}
+	}
+}

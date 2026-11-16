@@ -1,7 +1,7 @@
 # LoveACE 操作参考(ops catalog)
 
-> 由 `core/ops` 注册表生成(`./bin/loveace operations` 的 JSON 数据),共 73 项。
-> 最后生成:2026-10-24。目录改动后请重新生成本节。
+> 由 `core/ops` 注册表生成(`./bin/loveace operations` 的 JSON 数据),共 77 项。
+> 最后生成:2026-11-16。目录改动后请重新生成本节。
 
 ## 调用方式
 
@@ -162,6 +162,15 @@ Idempotency-Key: <唯一键>        # 仅写操作必需
 | 操作 | 说明 | 参数 | 写 |
 |---|---|---|---|
 | `announcements.list` | Visible announcements | `platform` 字符串（可选） |  |
+
+## portal
+
+| 操作 | 说明 | 参数 | 写 |
+|---|---|---|---|
+| `portal.access_records` | Dormitory or library access records (portal cube) | `kind` 字符串（必填）、`range` 字符串（可选，默认 `this_week`）、`page` 整数（可选） |  |
+| `portal.borrowing` | Current and past library loans (portal cube) | — |  |
+| `portal.consumption_records` | Campus-card consumption this month (portal cube; no balance column) | `page` 整数（可选） |  |
+| `portal.mail_initial_password` | Enterprise mail initial password (portal cube; plaintext, never cached) | — |  |
 
 ## session
 

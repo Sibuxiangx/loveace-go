@@ -24,6 +24,7 @@ import (
 	"github.com/Sibuxiangx/loveace-go/core/services/jwc"
 	"github.com/Sibuxiangx/loveace-go/core/services/labor"
 	"github.com/Sibuxiangx/loveace-go/core/services/manifest"
+	"github.com/Sibuxiangx/loveace-go/core/services/portal"
 	"github.com/Sibuxiangx/loveace-go/core/services/repair"
 	"github.com/Sibuxiangx/loveace-go/core/services/ykt"
 )
@@ -95,6 +96,7 @@ func Catalog() []Spec {
 	ops = append(ops, aacLaborOps()...)
 	ops = append(ops, competitionRepairOps()...)
 	ops = append(ops, manifestOps()...)
+	ops = append(ops, portalOps()...)
 	ops = append(ops, maintenanceOps()...)
 	return ops
 }
@@ -224,6 +226,17 @@ func manifestOps() []Spec {
 	return []Spec{
 		publicRead("manifest.v2", "Fetch Manifest v2"),
 		publicRead("announcements.list", "Visible announcements", opt("platform", ArgString)),
+	}
+}
+
+func portalOps() []Spec {
+	return []Spec{
+		readOp("portal.access_records", "Dormitory or library access records (portal cube)",
+			req("kind", ArgString), opt("range", ArgString), opt("page", ArgInteger)),
+		readOp("portal.borrowing", "Current and past library loans (portal cube)"),
+		readOp("portal.consumption_records", "Campus-card consumption this month (portal cube; no balance column)",
+			opt("page", ArgInteger)),
+		readOp("portal.mail_initial_password", "Enterprise mail initial password (portal cube; plaintext, never cached)"),
 	}
 }
 
@@ -639,6 +652,26 @@ func dispatchInner(ctx context.Context, s *session.Session, operation string, pa
 			return nil, errs.NewInvalidArgument("course must be a TeacherEvaluationCourse object")
 		}
 		return marshalResult(j.TeacherEvalVerify(ctx, &course))
+	}
+
+	p := portal.New(s)
+	switch operation {
+	case "portal.access_records":
+		kind, err := strArg(params, "kind")
+		if err != nil {
+			return nil, err
+		}
+		rangeName := ""
+		if v := optStrArg(params, "range"); v != nil {
+			rangeName = *v
+		}
+		return marshalResult(p.AccessRecords(ctx, kind, rangeName, int(i64ArgOr(params, "page", 1))))
+	case "portal.borrowing":
+		return marshalResult(p.Borrowing(ctx))
+	case "portal.consumption_records":
+		return marshalResult(p.ConsumptionRecords(ctx, int(i64ArgOr(params, "page", 1))))
+	case "portal.mail_initial_password":
+		return marshalResult(p.MailInitialPassword(ctx))
 	}
 
 	y := ykt.New(s)

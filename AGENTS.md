@@ -9,7 +9,7 @@
 LoveACE 的 Go 版核心库,从 Rust 的 `../LoveACE-core`(只读,不要改)迁移而来,
 目标是承载至多 2000 人同时在线的后端。**当前状态:M0~M6 + M5 全部完成**:
 
-- 核心库 `core/`(认证、会话、73 项学校操作、操作注册表、会话池、
+- 核心库 `core/`(认证、会话、77 项学校操作、操作注册表、会话池、
   **验证码 ONNX 推理 `core/captcha`**)
 - CLI `cmd/loveace`(call / shell / operations / self-test / bench)
 - 后端 `server/` 全功能:auth(Ed25519+刷新轮换+设备)、academic 读接口 +
@@ -54,8 +54,8 @@ Go 工具链不在 PATH,每条命令前加:`export PATH=$HOME/sdk/go/bin:$PATH`(
 loveace-go/
 ├── core/                  库代码(import 前缀 github.com/Sibuxiangx/loveace-go/core/<包>)
 │   ├── config cookies crypto detector diagnostics errs events retry timeutil transport session
-│   ├── services/          aac common competition isim jwc labor manifest repair ykt
-│   ├── ops/               操作目录(73 项)+ JSON 分发,CLI 与服务器共用
+│   ├── services/          aac common competition isim jwc labor manifest portal repair ykt
+│   ├── ops/               操作目录(77 项)+ JSON 分发,CLI 与服务器共用
 │   ├── sessionpool/       分片 + TTL + 单飞的会话池
 │   ├── internal/testutil/ 登录 fixture(MockTransport + 动态 RSA;core 内部,server 不可导入)
 │   └── loveace.go         门面:Client(共享连接池、每主机并发限制、登录限速)
@@ -80,7 +80,7 @@ loveace-go/
 ├── deploy/                部署:Containerfile、compose.yml、Caddy 站点、
 │                          .env.example(真实 .env 已 gitignore)
 ├── docs/STATUS.md         逐操作迁移状态(**部分内容已过时,见 §6**)
-├── docs/ops.md            操作参考(73 项,由 core/ops 注册表生成;目录改动后重新生成)
+├── docs/ops.md            操作参考(77 项,由 core/ops 注册表生成;目录改动后重新生成)
 ├── docs/maintenance.md    维护手册(部署/密钥/备份/事故处理)
 ├── AGENTS.local.md        私有环境与凭据(**gitignore**,可含密钥)
 └── bin/                   编译产物(gitignore)
@@ -361,6 +361,18 @@ ecpool 退场由 §7 的新模型替代):
   **教训:借出去的每一次身份登录都在花宿主的 E7 预算;单宿主意见不可
   定罪。**
 
+### 门户(portal,2026-11-16)
+
+- 包 `core/services/portal`,op 为 `portal.access_records`、`portal.borrowing`、`portal.consumption_records`、`portal.mail_initial_password`。握手与原生端一致:CAS 跳转(网关在会话健康时把 service 重定向改写进 vpn2 命名空间)→ `GET /sf-webproxy/api/vpn-config`(结果丢弃)→ `POST /api/portal/homepage/hpdata`,`hpinfo.userid` 即 `hrmResourceID`。
+- `hrmResourceID` 作为服务票据缓存(名 `portal`),随票据快照持久化;门户答登录页时清缓存并重握手一次。
+- hpdata 返回 404 + `Errormsg: securityIntercept` 进入 180 秒冷却,冷却期内不发请求。握手互斥与冷却由 `session.ServiceGate` 承担,只在内存中,不持久化。
+- cube 三步:getList → counts → datas,dataKey 必须 32 位,字段按列标题匹配,不按下标。
+- 消费记录读的是门户 cube 74507,只有日期、时间、地点、金额,没有交易后余额、交易类型、收支符号。旧 `ykt.transactions` 系列保留未改。
+- 邮箱初始密码(`DEFAULTPWD`)是明文学校值:不缓存,诊断脱敏规则已加入 `defaultpwd`。
+- 审核账号的门户 op 走 `server/internal/review` 假数据,零学校请求(`TestReviewPortalOpsServedWithoutSchool`)。
+- 实网只读验证(2026-11-16,授权账号):四个 op 全部成功,网关对 CAS 跳转的 Location 改写在线上成立。消费记录"本月"为 0,与旧接口在 11 月的 0 条一致(旧接口 10 月有 8 条)。非空解析没有在真实数据上验证。
+- 未覆盖:没有调用 `isNeedSecondAuth`(调研记录的门户二次验证接口)。学校若对门户启用二次验证,会表现为登录页或 hpdata 失败。其他用户的日期默认值与字段组合未验证。
+
 ### 实网(2026-10-21, E-D 直连容量 + 错密码风暴, 用户授权)
 
 压测工具新增 `-bad N`(错密码风暴,内存内损坏 UAAP+网关双密码,
@@ -467,7 +479,7 @@ export PATH=$HOME/sdk/go/bin:$PATH
 cd <repo>
 go build ./... && go vet ./... && go test -race ./...      # vet 现在是干净的
 go build -o bin/loveace ./cmd/loveace
-./bin/loveace operations                                   # 73 个操作
+./bin/loveace operations                                   # 77 个操作
 ./bin/loveace self-test                                    # 离线自检
 ./bin/loveace bench --sessions 1000 --ops jwc.academic_info
 # 实网(需要 .env.test;多步测试用 shell 模式,写操作加 --allow-write)

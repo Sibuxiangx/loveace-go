@@ -34,11 +34,11 @@
 
 学校的服务（教务、一卡通、第二课堂、后勤电费、报修等）没有公开的 API。
 本项目实现了学校的完整认证链（EasyConnect 网关的 RSA 登录与 UAAP/CAS 认证），
-并把 73 项操作的抓取与解析统一成一个操作目录，供命令行和后端共用。
+并把 77 项操作的抓取与解析统一成一个操作目录，供命令行和后端共用。
 
 三个组成部分：
 
-1. **`core/`：学校连接器。** 认证链、会话过期自愈、73 项操作。读请求遇到会话过期会恢复并重放一次；
+1. **`core/`：学校连接器。** 认证链、会话过期自愈、77 项操作。读请求遇到会话过期会恢复并重放一次；
    写请求绝不重放，结果不确定时返回 `outcome_unknown`。
 2. **`cmd/loveace`：命令行工具。** `operations`、`call`、`shell`、`self-test`，在终端里直接使用全部能力。
 3. **`server/`：loveaced 后端。** 在连接器之上提供账号体系（信封加密的凭据保险库）、Ed25519 访问令牌与刷新轮换、
@@ -93,7 +93,7 @@ LOVEACED_DEV=1 go run ./server/cmd/loveaced  # 监听 :8080，GET /healthz 探�
 
 ```sh
 go build -o bin/loveace ./cmd/loveace
-./bin/loveace operations                     # 列出 73 项操作
+./bin/loveace operations                     # 列出 77 项操作
 ./bin/loveace self-test                      # 离线自检
 ```
 
@@ -276,7 +276,7 @@ podman-compose 不会检测到镜像变化，只执行 `up -d` 会继续运行�
 | 认证 | `POST /v1/auth/sessions` 等 | 登录、令牌刷新、验证码挑战、登出 |
 | 账号 | `/v1/me`、`/v1/me/devices` | 账号状态、设备列表与吊销 |
 | 教务 | `/v1/me/academic/*` | 学业概览、学期成绩、考试、培养方案、课表（含校历合并视图） |
-| 通用操作 | `POST /v1/me/ops` | 73 项操作的统一入口，写操作必须带 `Idempotency-Key` |
+| 通用操作 | `POST /v1/me/ops` | 77 项操作的统一入口，写操作必须带 `Idempotency-Key` |
 | 公开 | `/v1/public/status`、`/v1/public/calendar`、`/v1/public/announcements` | 无需登录 |
 | 管理 | `/v1/admin/*` | 需要 `LOVEACED_ADMIN_TOKEN`，只在配置了令牌时存在 |
 
@@ -311,7 +311,7 @@ go test ./core/captcha
 ## 项目结构
 
 ```text
-core/          学校连接器：认证链、会话、73 项操作、解析
+core/          学校连接器：认证链、会话、77 项操作、解析
 cmd/loveace/   命令行工具
 server/        loveaced 后端：API、凭据保险库、缓存、验证码求解
 deploy/        Containerfile、compose、Caddy 站点示例、.env 模板

@@ -119,3 +119,21 @@ func TestWithoutReviewAccountTheSameLoginGoesToSchool(t *testing.T) {
 		t.Fatal("with the review account off, login must reach the school")
 	}
 }
+
+// The review account reads every portal op from fixtures: each answers 200 and
+// the account never reaches the school.
+func TestReviewPortalOpsServedWithoutSchool(t *testing.T) {
+	tr := successTransport(t)
+	h := newReviewServer(t, tr)
+	access := mustLogin(t, h, reviewTestAccount, reviewTestPassword, "review-phone")
+	for _, op := range []string{"portal.access_records", "portal.borrowing", "portal.consumption_records", "portal.mail_initial_password"} {
+		args := map[string]any{}
+		if op == "portal.access_records" {
+			args = map[string]any{"kind": "dormitory", "range": "this_week"}
+		}
+		if res, _ := runOps(t, h, access, "", op, args); res.Code != http.StatusOK {
+			t.Fatalf("%s = %d %s", op, res.Code, res.Body.String())
+		}
+	}
+	requireNoSchool(t, tr, "portal ops")
+}

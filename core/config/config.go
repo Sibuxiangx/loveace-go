@@ -65,6 +65,14 @@ const LaborAPIBase = "http://api-ldjlb-ac-acxk-net.vpn2.aufe.edu.cn:8118"
 // LaborLoginService is the labor-club CAS login service used to mint a ticket.
 const LaborLoginService = "http://uaap-aufe-edu-cn.vpn2.aufe.edu.cn:8118/cas/login?service=http%3a%2f%2fapi.ldjlb.ac.acxk.net%2fUser%2fIndex%2fCoreLoginCallback%3fisCASGateway%3dtrue"
 
+// PortalBase is the school portal (门户, all.aufe.edu.cn) proxy base. The
+// portal session lands on the -s host after the CAS hop.
+const PortalBase = "http://all-aufe-edu-cn-s.vpn2.aufe.edu.cn:8118"
+
+// PortalLoginService is the portal's CAS entry. While the gateway session is
+// healthy it rewrites the service redirect into the vpn2 namespace.
+const PortalLoginService = "http://uaap-aufe-edu-cn.vpn2.aufe.edu.cn:8118/cas/login?service=http%3A%2F%2Fall.aufe.edu.cn%2Fwui%2Fcas-entrance.jsp%3Fpath%3Dhttps%253A%252F%252Fall.aufe.edu.cn%252Fwui%252Findex.html%2523%252Fmain%26ssoType%3DCAS"
+
 // ISIMBase is the ISIM / dormitory electricity (后勤) base (no port in the desktop source).
 const ISIMBase = "http://hqkd-aufe-edu-cn.vpn2.aufe.edu.cn"
 

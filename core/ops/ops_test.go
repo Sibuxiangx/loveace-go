@@ -123,6 +123,7 @@ func TestCatalogMatchesRustOperationNames(t *testing.T) {
 		"labor.reset_ticket",
 		"isim.buildings", "isim.floors", "isim.rooms", "isim.electricity",
 		"competition.info",
+		"portal.access_records", "portal.borrowing", "portal.consumption_records", "portal.mail_initial_password",
 		"repair.orders", "repair.order_detail", "repair.form_data",
 		"repair.upload_image", "repair.submit",
 		"manifest.v2", "announcements.list",

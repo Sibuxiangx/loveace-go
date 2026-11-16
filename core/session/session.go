@@ -170,6 +170,10 @@ type Session struct {
 	serviceTicketsMu sync.Mutex
 	serviceTickets   map[string]string
 
+	// gatesMu guards gates: per-service handshake gates (see ServiceGate).
+	gatesMu sync.Mutex
+	gates   map[string]*ServiceGate
+
 	// svcMu guards svcCb, the JWC callback started by the last UAAP success
 	// (see service_callback.go). Login does not wait for it.
 	svcMu sync.Mutex
