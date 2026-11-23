@@ -535,7 +535,8 @@ p50 4.3s 已优于池下 8.9s。)2026-10-26:登录里的 JWC 回调改为后台�
 
 ### 15.2 架构
 
-- `server/internal/teachereval`:`Pool`(容量 50 按用户,排队上限 200)、`runner`(每任务一个,每门课一个 goroutine)、`Clock`(生产用真时钟,测试用假时钟)、`RemoteFactory`。
+- `core/teachereval`:批次引擎(节奏、单门流程、核实、批后补偿),不含存储,`Observer` 接收进度;服务端与桌面端共用。`Remote` 接口由调用方提供,`NewJWCRemote` 适配 jwc 服务。
+- `server/internal/teachereval`:`Pool`(容量 50 按用户,排队上限 200)、`runner`(每任务一个:解析每一步的会话,并把引擎进度写进存储)、`RemoteFactory`。时钟为 `core/teachereval` 的 `Clock`(生产用真时钟,测试用 `ManualClock`)。
 - 每一步都经 `SessionFor` 取会话:刷新活跃时间,防止 `SweepCold` 在任务中途清扫会话。
 - 写请求不重放:会话过期时 `Send` 返回 `outcome_unknown`,引擎只能核实,不能盲提。
 - 一人一个活动任务:由 `teacher_eval_tasks` 的部分唯一索引保证。

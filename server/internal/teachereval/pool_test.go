@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sibuxiangx/loveace-go/core/errs"
 	"github.com/Sibuxiangx/loveace-go/core/services/jwc"
+	tecore "github.com/Sibuxiangx/loveace-go/core/teachereval"
 	"github.com/Sibuxiangx/loveace-go/server/internal/store"
 	"github.com/Sibuxiangx/loveace-go/server/internal/store/mem"
 )
@@ -32,13 +33,13 @@ func course(i int) jwc.TeacherEvaluationCourse {
 
 func keyOf(i int) string {
 	c := course(i)
-	return CourseKey(&c, 0)
+	return tecore.CourseKey(&c, 0)
 }
 
 // userState is one user's fake school account.
 type userState struct {
 	mu          sync.Mutex
-	clock       *ManualClock
+	clock       *tecore.ManualClock
 	index       []*jwc.TeacherEvaluationIndexStatus
 	indexCalls  int
 	courses     []jwc.TeacherEvaluationCourse
@@ -55,7 +56,7 @@ type userState struct {
 
 func (u *userState) markEvaluated(key string) {
 	for i := range u.courses {
-		if CourseKey(&u.courses[i], i) == key {
+		if tecore.CourseKey(&u.courses[i], i) == key {
 			u.courses[i].IsEvaluated = true
 		}
 	}
@@ -81,7 +82,7 @@ func (u *userState) modesSeen() []jwc.TeacherEvalScoreMode {
 
 type fakeSchool struct {
 	mu    sync.Mutex
-	clock *ManualClock
+	clock *tecore.ManualClock
 	users map[string]*userState
 }
 
@@ -111,7 +112,7 @@ func (s *fakeSchool) user(id string, courses ...jwc.TeacherEvaluationCourse) *us
 
 type fakeFactory struct{ s *fakeSchool }
 
-func (f fakeFactory) For(_ context.Context, userID, _ string) (Remote, error) {
+func (f fakeFactory) For(_ context.Context, userID, _ string) (tecore.Remote, error) {
 	return fakeRemote{u: f.s.user(userID)}, nil
 }
 
@@ -145,11 +146,11 @@ func (r fakeRemote) Prepare(_ context.Context, c *jwc.TeacherEvaluationCourse, _
 	u := r.u
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	key := CourseKey(c, 0)
+	key := tecore.CourseKey(c, 0)
 	u.modes = append(u.modes, mode)
 	u.prepareAt[key] = append(u.prepareAt[key], u.clock.Now())
 	if u.captcha {
-		return nil, ErrCaptchaRequired
+		return nil, tecore.ErrCaptchaRequired
 	}
 	if u.prepareFail[key] > 0 {
 		u.prepareFail[key]--
@@ -160,7 +161,7 @@ func (r fakeRemote) Prepare(_ context.Context, c *jwc.TeacherEvaluationCourse, _
 
 func (r fakeRemote) Submit(_ context.Context, p *jwc.TeacherEvaluationPreparedForm) (*jwc.TeacherEvaluationSubmitResult, error) {
 	u := r.u
-	key := CourseKey(&p.Course, 0)
+	key := tecore.CourseKey(&p.Course, 0)
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.submitAt[key] = append(u.submitAt[key], u.clock.Now())
@@ -183,7 +184,7 @@ func (r fakeRemote) Verify(_ context.Context, c *jwc.TeacherEvaluationCourse) (b
 		return false, errs.NewNetwork("verify down")
 	}
 	for i := range u.courses {
-		if Matches(&u.courses[i], c) {
+		if tecore.Matches(&u.courses[i], c) {
 			return u.courses[i].IsEvaluated, nil
 		}
 	}
@@ -194,7 +195,7 @@ func (r fakeRemote) Verify(_ context.Context, c *jwc.TeacherEvaluationCourse) (b
 type harness struct {
 	t      *testing.T
 	ctx    context.Context
-	clock  *ManualClock
+	clock  *tecore.ManualClock
 	school *fakeSchool
 	st     *mem.Store
 	pool   *Pool
@@ -205,7 +206,7 @@ func newHarness(t *testing.T, cfg Config) *harness {
 	if !cfg.Enabled && cfg.Capacity == 0 && cfg.MaxQueue == 0 {
 		cfg.Enabled = true
 	}
-	clock := NewManualClock(t0)
+	clock := tecore.NewManualClock(t0)
 	school := &fakeSchool{clock: clock, users: map[string]*userState{}}
 	st := mem.New()
 	p := New(cfg, st, fakeFactory{school}, clock)
@@ -298,7 +299,7 @@ func TestTaskFollowsClientPacing(t *testing.T) {
 		t.Fatalf("status = %s (%s)", got.Status, got.ErrorMessage)
 	}
 	for i := 1; i <= 3; i++ {
-		if st := h.courseStatus(task.ID, keyOf(i)); st != stSuccess {
+		if st := h.courseStatus(task.ID, keyOf(i)); st != tecore.StatusSuccess {
 			t.Fatalf("course %d status = %s", i, st)
 		}
 		prep := u.preparesOf(keyOf(i))
@@ -306,11 +307,11 @@ func TestTaskFollowsClientPacing(t *testing.T) {
 		if len(prep) != 1 || len(sub) != 1 {
 			t.Fatalf("course %d: prepares=%d submits=%d", i, len(prep), len(sub))
 		}
-		if want := t0.Add(time.Duration(i-1) * LaunchInterval); !prep[0].Equal(want) {
+		if want := t0.Add(time.Duration(i-1) * tecore.LaunchInterval); !prep[0].Equal(want) {
 			t.Fatalf("course %d prepared at %v, want %v (6s launch stagger)", i, prep[0], want)
 		}
-		if gap := sub[0].Sub(prep[0]); gap != SubmitWait {
-			t.Fatalf("course %d submitted %v after prepare, want %v", i, gap, SubmitWait)
+		if gap := sub[0].Sub(prep[0]); gap != tecore.SubmitWait {
+			t.Fatalf("course %d submitted %v after prepare, want %v", i, gap, tecore.SubmitWait)
 		}
 	}
 }
@@ -339,7 +340,7 @@ func TestAmbiguousSubmitIsConfirmedNotResubmitted(t *testing.T) {
 	task := h.create("u1", ScoreRandom)
 	h.drive(h.finished(task.ID))
 
-	if st := h.courseStatus(task.ID, keyOf(1)); st != stSuccess {
+	if st := h.courseStatus(task.ID, keyOf(1)); st != tecore.StatusSuccess {
 		t.Fatalf("course status = %s, want success confirmed by verify", st)
 	}
 	if n := len(u.submitsOf(keyOf(1))); n != 1 {
@@ -354,7 +355,7 @@ func TestUnconfirmedSubmitRetriesOnceWithFreshForm(t *testing.T) {
 	task := h.create("u1", ScoreRandom)
 	h.drive(h.finished(task.ID))
 
-	if st := h.courseStatus(task.ID, keyOf(1)); st != stSuccess {
+	if st := h.courseStatus(task.ID, keyOf(1)); st != tecore.StatusSuccess {
 		t.Fatalf("course status = %s, want success after the retry", st)
 	}
 	if n := len(u.submitsOf(keyOf(1))); n != 2 {
@@ -374,7 +375,7 @@ func TestVerifyErrorNeverResubmits(t *testing.T) {
 	h.drive(h.finished(task.ID))
 
 	rows := h.rows(task.ID)
-	if rows[0].Status != stFailed || rows[0].ErrorKind != "verify_unknown" {
+	if rows[0].Status != tecore.StatusFailed || rows[0].ErrorKind != "verify_unknown" {
 		t.Fatalf("row = %s/%s, want failed/verify_unknown", rows[0].Status, rows[0].ErrorKind)
 	}
 	if n := len(u.submitsOf(keyOf(1))); n != 1 {
@@ -475,7 +476,7 @@ func TestCancelWhileWaitingNeverSubmits(t *testing.T) {
 	h := newHarness(t, Config{})
 	u := h.school.user("u1")
 	task := h.create("u1", ScoreRandom)
-	h.drive(func() bool { return h.courseStatus(task.ID, keyOf(1)) == stWaiting })
+	h.drive(func() bool { return h.courseStatus(task.ID, keyOf(1)) == tecore.StatusWaiting })
 
 	if _, err := h.pool.Cancel(h.ctx, "u1", task.ID); err != nil {
 		t.Fatal(err)
@@ -516,7 +517,7 @@ func TestRestartInterruptsRunningAndRequeuesQueued(t *testing.T) {
 	running := store.TeacherEvalTask{ID: "running-1", UserID: "u5", Status: "running", ScoreMode: ScoreRandom, CreatedAt: t0}
 	inFlight := store.TeacherEvalTaskCourse{
 		TaskID: running.ID, CourseKey: keyOf(9), Name: "课程9", Position: 0,
-		Status: stSubmitting, SubmitAttempts: 1, SubmittedAt: t0, UpdatedAt: t0,
+		Status: tecore.StatusSubmitting, SubmitAttempts: 1, SubmittedAt: t0, UpdatedAt: t0,
 	}
 	if err := h.st.CreateTeacherEvalTask(h.ctx, running, []store.TeacherEvalTaskCourse{inFlight}); err != nil {
 		t.Fatal(err)
@@ -533,7 +534,7 @@ func TestRestartInterruptsRunningAndRequeuesQueued(t *testing.T) {
 	if got := h.status(running.ID); got.Status != "interrupted" {
 		t.Fatalf("running task after restart = %s, want interrupted", got.Status)
 	}
-	if rows := h.rows(running.ID); rows[0].Status != stCancelled {
+	if rows := h.rows(running.ID); rows[0].Status != tecore.StatusCancelled {
 		t.Fatalf("in-flight course = %s, must not be resubmitted", rows[0].Status)
 	}
 	if n := len(h.school.user("u5").submitsOf(keyOf(9))); n != 0 {
@@ -558,7 +559,7 @@ func TestPauseStopsRunningTasksAndBlocksCreate(t *testing.T) {
 	h := newHarness(t, Config{})
 	h.school.user("u1")
 	task := h.create("u1", ScoreRandom)
-	h.drive(func() bool { return h.courseStatus(task.ID, keyOf(1)) == stWaiting })
+	h.drive(func() bool { return h.courseStatus(task.ID, keyOf(1)) == tecore.StatusWaiting })
 
 	h.pool.Pause(true)
 	h.drive(h.finished(task.ID))

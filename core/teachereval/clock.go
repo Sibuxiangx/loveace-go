@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Clock abstracts waiting so the 6s launch stagger and the 140s submit wait
-// can be driven by a manual clock in tests.
+// Clock abstracts time so the launch stagger and the submit wait can be driven by a manual clock
+// in tests.
 type Clock interface {
 	Now() time.Time
 	// After fires once d has elapsed. d <= 0 fires immediately.

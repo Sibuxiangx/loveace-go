@@ -66,7 +66,7 @@ loveace-go/
 │   │   ├── api/           Huma v2 + chi;auth/me/academic;problem+json;消毒中间件
 │   │   ├── cache/         读穿缓存 + 单飞 + stale-if-error
 │   │   ├── captchastore/  判卷结果沉淀:金标/负样本 zstd 日切 + 保留期清理
-│   │   ├── teachereval/   自动评教后台任务池(DESIGN §15)
+│   │   ├── teachereval/   自动评教后台任务池(DESIGN §15;批次引擎在 core/teachereval)
 │   │   ├── config/        环境变量配置(缺钥匙自动进 dev 模式)
 │   │   ├── dto/           自有数据格式 + 唯一映射点(mapper.go)
 │   │   ├── gate/          §5.1 密码格式预校验(纯函数)

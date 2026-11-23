@@ -7,10 +7,9 @@ import (
 	"github.com/Sibuxiangx/loveace-go/core/services/jwc"
 )
 
-// CourseKey identifies a course across refreshes. It follows the clients'
-// displayId: the four-part stable id when complete, otherwise the best
-// available fallback. A course with no identifying field gets its row
-// position so the key stays unique inside a task.
+// CourseKey identifies a course across refreshes. It follows the clients' displayId: the four-part
+// stable id when complete, otherwise the best available fallback. A course with no identifying
+// field gets its row position, so the key stays unique inside one batch.
 func CourseKey(c *jwc.TeacherEvaluationCourse, position int) string {
 	if stable := stableID(c); stable != "" {
 		return stable
@@ -30,9 +29,8 @@ func stableID(c *jwc.TeacherEvaluationCourse) string {
 	return strings.Join(parts, "_")
 }
 
-// Matches mirrors the client rule. Two courses match on the stable id when
-// both have one; otherwise the evaluated-people and content numbers must both
-// be present and equal.
+// Matches mirrors the client rule. Two courses match on the stable id when both have one;
+// otherwise the evaluated-people and content numbers must both be present and equal.
 func Matches(a, b *jwc.TeacherEvaluationCourse) bool {
 	if sa, sb := stableID(a), stableID(b); sa != "" && sb != "" {
 		return sa == sb

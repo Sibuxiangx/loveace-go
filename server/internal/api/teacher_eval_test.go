@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	tecore "github.com/Sibuxiangx/loveace-go/core/teachereval"
 	"github.com/Sibuxiangx/loveace-go/core/transport"
 	"github.com/Sibuxiangx/loveace-go/server/internal/config"
 	"github.com/Sibuxiangx/loveace-go/server/internal/health"
@@ -58,7 +59,7 @@ func newTeachTestServer(t *testing.T, tr *transport.MockTransport, enabled bool,
 	st := mem.New()
 	sm := school.NewManager(func() transport.Transport { return tr },
 		school.WithSinkFactory(reg.SinkFor), school.WithoutLoginGate())
-	clock := teachereval.NewManualClock(time.Date(2026, 10, 26, 8, 0, 0, 0, time.UTC))
+	clock := tecore.NewManualClock(time.Date(2026, 10, 26, 8, 0, 0, 0, time.UTC))
 	pool := teachereval.New(teachereval.Config{Enabled: enabled}, st, teachereval.SchoolFactory{School: sm}, clock)
 	t.Cleanup(pool.Shutdown)
 	srv := New(Deps{

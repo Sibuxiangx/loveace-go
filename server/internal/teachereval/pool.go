@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sibuxiangx/loveace-go/core/services/jwc"
+	tecore "github.com/Sibuxiangx/loveace-go/core/teachereval"
 	"github.com/Sibuxiangx/loveace-go/server/internal/store"
 )
 
@@ -63,7 +64,7 @@ type Pool struct {
 	cfg    Config
 	st     store.Store
 	remote RemoteFactory
-	clock  Clock
+	clock  tecore.Clock
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -92,7 +93,7 @@ type cachedIndex struct {
 }
 
 // New builds a pool. Call Start once to recover tasks from the previous run.
-func New(cfg Config, st store.Store, remote RemoteFactory, clock Clock) *Pool {
+func New(cfg Config, st store.Store, remote RemoteFactory, clock tecore.Clock) *Pool {
 	if cfg.Capacity <= 0 {
 		cfg.Capacity = DefaultCapacity
 	}
@@ -103,7 +104,7 @@ func New(cfg Config, st store.Store, remote RemoteFactory, clock Clock) *Pool {
 		cfg.StatusTTL = DefaultStatusTTL
 	}
 	if clock == nil {
-		clock = RealClock{}
+		clock = tecore.RealClock{}
 	}
 	if remote == nil {
 		remote = unavailableFactory{}
@@ -166,7 +167,7 @@ func (p *Pool) interruptStored(ctx context.Context, t store.TeacherEvalTask) {
 			if isTerminalCourse(row.Status) {
 				continue
 			}
-			row.Status = stCancelled
+			row.Status = tecore.StatusCancelled
 			row.Message = reason
 			row.UpdatedAt = now
 			_ = p.st.UpdateTeacherEvalCourse(ctx, row)
@@ -309,23 +310,23 @@ func (p *Pool) finish(r *runner, err error) {
 		p.counters.completed.Add(1)
 		ok, failed := r.summary()
 		p.log(t.ID, fmt.Sprintf("评教结束：成功 %d 门，失败 %d 门", ok, failed))
-	case errors.Is(err, errUserCancelled):
+	case errors.Is(err, tecore.ErrCancelled):
 		t.Status = "cancelled"
 		t.CancelRequested = true
 		t.ErrorMessage = "已取消；已提交的评价无法撤回"
 		p.counters.cancelled.Add(1)
-	case errors.Is(err, errShutdown):
+	case errors.Is(err, tecore.ErrInterrupted):
 		t.Status = "interrupted"
 		t.ErrorKind = "interrupted"
 		t.ErrorMessage = "服务关闭，任务已中断"
 		p.counters.interrupted.Add(1)
 	default:
 		t.Status = "failed"
-		var te *taskError
+		var te *tecore.TaskError
 		if errors.As(err, &te) {
-			t.ErrorKind = te.kind
-			t.ErrorMessage = te.msg
-			if te.kind == "captcha_required" {
+			t.ErrorKind = te.Kind
+			t.ErrorMessage = te.Msg
+			if te.Kind == "captcha_required" {
 				p.counters.captchaAborts.Add(1)
 			}
 		} else {
@@ -365,7 +366,7 @@ func (p *Pool) Cancel(ctx context.Context, userID, taskID string) (*store.Teache
 	p.mu.Lock()
 	if r, ok := p.running[taskID]; ok {
 		p.mu.Unlock()
-		r.abort(errUserCancelled)
+		r.abort(tecore.ErrCancelled)
 		t.CancelRequested = true
 		return t, nil
 	}
@@ -446,7 +447,7 @@ func (p *Pool) Pause(paused bool) {
 	}
 	p.mu.Unlock()
 	for _, r := range running {
-		r.abort(&taskError{kind: "paused", msg: "运营已暂停自动评教，任务已停止"})
+		r.abort(&tecore.TaskError{Kind: "paused", Msg: "运营已暂停自动评教，任务已停止"})
 	}
 }
 
@@ -597,7 +598,7 @@ func isTerminalTask(status string) bool {
 
 func isTerminalCourse(status string) bool {
 	switch status {
-	case stSuccess, stFailed, stCancelled, "skipped":
+	case tecore.StatusSuccess, tecore.StatusFailed, tecore.StatusCancelled, "skipped":
 		return true
 	}
 	return false

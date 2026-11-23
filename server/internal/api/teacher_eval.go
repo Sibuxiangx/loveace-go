@@ -13,6 +13,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	tecore "github.com/Sibuxiangx/loveace-go/core/teachereval"
 	"github.com/Sibuxiangx/loveace-go/server/internal/store"
 	"github.com/Sibuxiangx/loveace-go/server/internal/teachereval"
 )
@@ -306,9 +307,9 @@ func teachProblem(err error, task *store.TeacherEvalTask) error {
 		return p
 	case errors.Is(err, teachereval.ErrQueueFull):
 		return newProblem(http.StatusTooManyRequests, "teacher_eval.queue_full", "自动评教排队已满，请稍后再试")
-	case errors.Is(err, teachereval.ErrSessionUnavailable):
+	case errors.Is(err, tecore.ErrSessionUnavailable):
 		return newProblem(http.StatusUnauthorized, "auth.school_login_required", "没有可用的学校会话，请重新登录")
-	case errors.Is(err, teachereval.ErrCaptchaRequired):
+	case errors.Is(err, tecore.ErrCaptchaRequired):
 		return newProblem(http.StatusConflict, "school.captcha_required", "学校网关需要验证码，请稍后重试")
 	}
 	var closed *teachereval.ClosedError
