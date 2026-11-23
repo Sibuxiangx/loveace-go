@@ -600,46 +600,7 @@ func (sv *Service) CourseScheduleForTerm(caller context.Context, termCode string
 }
 
 func (sv *Service) courseSchedulePage(caller context.Context, courseCode, termCode string, pageNum, pageSize int64) ([]CourseScheduleRecord, int64, error) {
-	form := [][2]string{
-		{"zxjxjhh", termCode},
-		{"kkxsh", ""},
-		{"kkxqh", ""},
-		{"jxlh", ""},
-		{"jash", ""},
-		{"skxq", ""},
-		{"skjc", ""},
-		{"kch", courseCode},
-		{"kcm", ""},
-		{"kclb", ""},
-		{"skjs", ""},
-		{"xqname", ""},
-		{"jcname", ""},
-		{"jxlname", ""},
-		{"jasname", ""},
-		{"pageNum", itoa(pageNum)},
-		{"pageSize", itoa(pageSize)},
-	}
-	referer := sv.url("/student/integratedQuery/course/courseSchdule/index")
-	response, err := sv.postForm(caller,
-		"/student/integratedQuery/course/courseSchdule/courseInfo?sf_request_type=ajax",
-		form, [][2]string{{"Referer", referer}}, session.Read)
-	if err != nil {
-		return nil, 0, err
-	}
-	value, err := common.ParseJSON(response.BodyText())
-	if err != nil {
-		return nil, 0, err
-	}
-	list := common.RawField(value, "list")
-	var records []CourseScheduleRecord
-	for _, item := range common.ArrayItems(common.RawField(list, "records")) {
-		records = append(records, parseCourseScheduleRecord(item))
-	}
-	total := int64(0)
-	if ctx := common.RawField(list, "pageContext"); ctx != nil {
-		total = common.JSONI64(ctx, "totalCount")
-	}
-	return records, total, nil
+	return sv.CourseSchedulePage(caller, CourseScheduleQuery{TermCode: termCode, CourseCode: courseCode}, pageNum, pageSize)
 }
 
 // ==================== Class curriculum ====================
